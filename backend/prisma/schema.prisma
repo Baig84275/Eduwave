@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum Role {
+  PARENT
+  FACILITATOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum AccessibilityMode {
+  STANDARD
+  VISUAL_SUPPORT
+  READING_DYSLEXIA
+  HEARING_SUPPORT
+  MOBILITY_SUPPORT
+  NEURODIVERSE
+}
+
+enum ProgressUpdateType {
+  MILESTONE
+  NOTE
+  MEDIA
+}
+
+enum ProgressUpdateStatus {
+  APPROVED
+  PENDING_PARENT_APPROVAL
+  REJECTED
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+  DOCUMENT
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  role          Role
+  accessibilityMode AccessibilityMode?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  children                Child[]             @relation("ParentChildren")
+  createdUpdates          ProgressUpdate[]    @relation("CreatedUpdates")
+  decidedUpdates          ProgressUpdate[]    @relation("DecidedUpdates")
+  facilitatorAssignments  FacilitatorAssignment[] @relation("FacilitatorAssignments")
+}
+
+model Child {
+  id                String   @id @default(cuid())
+  parentId          String
+  name              String
+  dateOfBirth       DateTime
+  healthStatusEnc   String?
+  profilePictureUrl String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  parent                User                   @relation("ParentChildren", fields: [parentId], references: [id])
+  progressUpdates       ProgressUpdate[]
+  facilitatorAssignments FacilitatorAssignment[]
+
+  @@index([parentId])
+}
+
+model FacilitatorAssignment {
+  id            String   @id @default(cuid())
+  childId       String
+  facilitatorId String
+  createdAt     DateTime @default(now())
+
+  child       Child @relation(fields: [childId], references: [id])
+  facilitator User  @relation("FacilitatorAssignments", fields: [facilitatorId], references: [id])
+
+  @@unique([childId, facilitatorId])
+  @@index([facilitatorId])
+  @@index([childId])
+}
+
+model ProgressUpdate {
+  id               String               @id @default(cuid())
+  childId          String
+  createdById      String
+  createdByRole    Role
+  type             ProgressUpdateType
+  milestoneTitleEnc String?
+  noteEnc          String?
+  status           ProgressUpdateStatus
+  decidedAt        DateTime?
+  decidedById      String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  child      Child @relation(fields: [childId], references: [id])
+  createdBy  User  @relation("CreatedUpdates", fields: [createdById], references: [id])
+  decidedBy  User? @relation("DecidedUpdates", fields: [decidedById], references: [id])
+  media      Media[]
+
+  @@index([childId, createdAt])
+  @@index([status])
+}
+
+model Media {
+  id              String   @id @default(cuid())
+  progressUpdateId String
+  kind            MediaKind
+  url             String
+  mimeType        String?
+  fileName        String?
+  size            Int?
+  createdAt       DateTime @default(now())
+
+  progressUpdate ProgressUpdate @relation(fields: [progressUpdateId], references: [id])
+
+  @@index([progressUpdateId])
+}

@@ -1,0 +1,22 @@
+{
+  "name": "eduwave-village",
+  "private": true,
+  "dependencies": {
+    "react": "19.1.0",
+    "react-native": "0.81.5"
+  },
+  "overrides": {
+    "@types/react": "19.1.10"
+  },
+  "workspaces": [
+    "backend",
+    "mobile"
+  ],
+  "scripts": {
+    "dev:backend": "npm --workspace backend run dev",
+    "dev:mobile": "npm --workspace mobile run start",
+    "test": "npm --workspace backend test",
+    "lint": "npm --workspace backend run lint && npm --workspace mobile run lint",
+    "postinstall": "npm --workspace backend run prisma:generate"
+  }
+}
