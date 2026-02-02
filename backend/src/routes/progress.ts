@@ -8,7 +8,8 @@ import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth";
 import { decryptString, encryptString } from "../lib/crypto";
 import { assertChildReadAccessOrThrow, assertChildWriteAccessOrThrow } from "../permissions/children";
-import { getUploadsDir, toPublicUploadUrl } from "../storage/uploads";
+import { getUploadsDir, toSignedUploadUrl, toUploadKey } from "../storage/uploads";
+import { writeAuditEvent } from "../audit/audit";
 
 export const progressRouter = Router();
 
@@ -52,7 +53,7 @@ function toUpdateResponse(
     media: update.media.map((m) => ({
       id: m.id,
       kind: m.kind,
-      url: m.url,
+      url: toSignedUploadUrl({ uploadKey: toUploadKey(m.url), userId: user.id, role: user.role }),
       mimeType: m.mimeType,
       fileName: m.fileName,
       size: m.size
@@ -96,6 +97,16 @@ progressRouter.post(
         noteEnc: body.note ? encryptString(body.note) : null
       },
       include: { media: true }
+    });
+
+    await writeAuditEvent({
+      prisma,
+      req,
+      actor: user,
+      action: "progress.update.create",
+      entityType: "ProgressUpdate",
+      entityId: update.id,
+      metadata: { childId, type: update.type, status: update.status }
     });
 
     res.json({ update: toUpdateResponse(user, update) });
@@ -148,7 +159,7 @@ progressRouter.post(
         media: {
           create: {
             kind: body.kind,
-            url: toPublicUploadUrl(relativePath),
+            url: relativePath,
             mimeType: req.file.mimetype,
             fileName: req.file.originalname,
             size: req.file.size
@@ -156,6 +167,16 @@ progressRouter.post(
         }
       },
       include: { media: true }
+    });
+
+    await writeAuditEvent({
+      prisma,
+      req,
+      actor: user,
+      action: "progress.media.upload",
+      entityType: "ProgressUpdate",
+      entityId: update.id,
+      metadata: { childId, mediaKind: body.kind, file: relativePath, status: update.status }
     });
 
     res.json({ update: toUpdateResponse(user, update) });
@@ -241,7 +262,16 @@ progressRouter.post(
       include: { media: true }
     });
 
+    await writeAuditEvent({
+      prisma,
+      req,
+      actor: user,
+      action: "progress.update.decision",
+      entityType: "ProgressUpdate",
+      entityId: decided.id,
+      metadata: { decision: body.decision, status: decided.status, childId: decided.childId }
+    });
+
     res.json({ update: toUpdateResponse(user, decided) });
   })
 );
-

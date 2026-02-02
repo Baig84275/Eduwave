@@ -10,13 +10,14 @@ import { TextField } from "../ui/TextField";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
 
-export function RegisterScreen({ navigation }: Props) {
+export function RegisterScreen({ navigation, route }: Props) {
   const { register } = useAuth();
   const { config } = useAccessibility();
   const colors = config.color.colors;
-  const [email, setEmail] = useState("");
+  const invitationToken = route.params?.invitationToken;
+  const [email, setEmail] = useState(route.params?.prefillEmail ?? "");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"PARENT" | "FACILITATOR">("PARENT");
+  const [role, setRole] = useState<"PARENT" | "FACILITATOR" | "TEACHER" | "THERAPIST">(route.params?.prefillRole ?? "PARENT");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -27,20 +28,30 @@ export function RegisterScreen({ navigation }: Props) {
       </Text>
       <Text style={{ fontSize: 15, color: colors.textMuted, marginTop: -6 }}>Choose a role and sign up</Text>
 
-      <View style={{ flexDirection: "row", gap: 10 }}>
-        <View style={{ flex: 1 }}>
-          <AppButton
-            title="Parent"
-            variant={role === "PARENT" ? "primary" : "secondary"}
-            onPress={() => setRole("PARENT")}
-          />
+      <View style={{ gap: 10 }}>
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <AppButton title="Parent" variant={role === "PARENT" ? "primary" : "secondary"} onPress={() => setRole("PARENT")} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppButton
+              title="Facilitator"
+              variant={role === "FACILITATOR" ? "primary" : "secondary"}
+              onPress={() => setRole("FACILITATOR")}
+            />
+          </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <AppButton
-            title="Facilitator"
-            variant={role === "FACILITATOR" ? "primary" : "secondary"}
-            onPress={() => setRole("FACILITATOR")}
-          />
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <AppButton title="Teacher" variant={role === "TEACHER" ? "primary" : "secondary"} onPress={() => setRole("TEACHER")} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppButton
+              title="Therapist"
+              variant={role === "THERAPIST" ? "primary" : "secondary"}
+              onPress={() => setRole("THERAPIST")}
+            />
+          </View>
         </View>
       </View>
 
@@ -72,7 +83,7 @@ export function RegisterScreen({ navigation }: Props) {
           setLoading(true);
           setError(null);
           try {
-            await register(email.trim(), password, role);
+            await register(email.trim(), password, role, invitationToken);
           } catch (e: any) {
             setError(e?.message ?? "Registration failed");
           } finally {

@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "success";
@@ -25,14 +25,29 @@ export function AppButton({
     variant === "primary"
       ? colors.primary
       : variant === "secondary"
-        ? colors.surface
+        ? colors.surfaceAlt
         : variant === "danger"
           ? colors.danger
           : variant === "success"
             ? colors.success
             : "transparent";
   const borderColor = variant === "secondary" || variant === "ghost" ? colors.border : "transparent";
-  const textColor = variant === "secondary" || variant === "ghost" ? colors.primary : "#FFFFFF";
+  const textColor = variant === "secondary" ? colors.text : variant === "ghost" ? colors.primary : "#FFFFFF";
+  const shadow =
+    isDisabled || variant === "ghost" || variant === "secondary"
+      ? {}
+      : Platform.select({
+          ios: {
+            shadowColor: "#000",
+            shadowOpacity: 0.12,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 8 }
+          },
+          android: {
+            elevation: 3
+          },
+          default: {}
+        });
 
   return (
     <Pressable
@@ -46,8 +61,9 @@ export function AppButton({
           minHeight: config.interaction.minTouchSize,
           paddingVertical: 12,
           paddingHorizontal: 14,
-          borderRadius: 12,
-          opacity: isDisabled ? 0.55 : pressed ? config.motion.pressFeedbackOpacity : 1
+          borderRadius: 14,
+          opacity: isDisabled ? 0.55 : pressed ? config.motion.pressFeedbackOpacity : 1,
+          ...(shadow as object)
         }
       ]}
     >
@@ -57,7 +73,7 @@ export function AppButton({
           style={{
             color: textColor,
             fontSize: Math.round(16 * config.typography.fontScale),
-            fontWeight: "700",
+            fontWeight: "800",
             letterSpacing: config.typography.letterSpacing
           }}
         >

@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleProp, Text, TextInput, TextInputProps, View, ViewStyle } from "react-native";
+import { Platform, StyleProp, Text, TextInput, TextInputProps, View, ViewStyle } from "react-native";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 
 export function TextField({
@@ -20,6 +20,21 @@ export function TextField({
   const helperSize = Math.round(13 * config.typography.fontScale);
   const paddingVertical = Math.round(12 * Math.min(config.typography.fontScale, 1.2));
   const minHeight = config.interaction.minTouchSize;
+  const shadow =
+    config.color.highContrast || colors.background === colors.surface
+      ? {}
+      : Platform.select({
+          ios: {
+            shadowColor: "#000",
+            shadowOpacity: 0.04,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 6 }
+          },
+          android: {
+            elevation: 1
+          },
+          default: {}
+        });
 
   return (
     <View style={[{ gap: 8 }, containerStyle]}>
@@ -47,7 +62,8 @@ export function TextField({
             borderRadius: 12,
             color: colors.text,
             fontSize,
-            letterSpacing: config.typography.letterSpacing
+            letterSpacing: config.typography.letterSpacing,
+            ...(shadow as object)
           },
           inputProps.style
         ]}

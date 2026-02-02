@@ -63,6 +63,14 @@ export function ApprovalsScreen({ route }: Props) {
         contentContainerStyle={{ paddingVertical: 4, gap: 10 }}
         data={updates}
         keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <Card style={{ backgroundColor: colors.surfaceAlt }}>
+            <Text style={{ color: colors.text, fontWeight: "900" }}>No pending approvals</Text>
+            <Text style={{ color: colors.textMuted, marginTop: 6 }}>
+              When a facilitator submits an update, it will appear here for review.
+            </Text>
+          </Card>
+        }
         renderItem={({ item }) => {
           return (
             <Card>

@@ -3,10 +3,18 @@ import React from "react";
 import { LoginScreen } from "../screens/LoginScreen";
 import { RegisterScreen } from "../screens/RegisterScreen";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { AuthInviteLinkScreen } from "../screens/AuthInviteLinkScreen";
 
 export type AuthStackParamList = {
   Login: undefined;
-  Register: undefined;
+  Register:
+    | {
+        prefillEmail?: string;
+        prefillRole?: "PARENT" | "FACILITATOR" | "TEACHER" | "THERAPIST";
+        invitationToken?: string;
+      }
+    | undefined;
+  Invite: { token: string };
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -25,6 +33,7 @@ export function AuthStack() {
     >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="Invite" component={AuthInviteLinkScreen} options={{ title: "Invitation" }} />
     </Stack.Navigator>
   );
 }

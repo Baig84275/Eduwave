@@ -6,6 +6,7 @@ import { MainStack } from "./src/navigation/MainStack";
 import { AccessibilityProvider, useAccessibility } from "./src/accessibility/AccessibilityProvider";
 import { SetupStack } from "./src/navigation/SetupStack";
 import { getNavigationTheme } from "./src/theme/navigationTheme";
+import { I18nProvider } from "./src/i18n/I18nProvider";
 
 function RootNavigator() {
   const { session } = useAuth();
@@ -18,7 +19,9 @@ export default function App() {
   return (
     <AuthProvider>
       <AccessibilityProvider>
-        <AppNavigation />
+        <I18nProvider>
+          <AppNavigation />
+        </I18nProvider>
       </AccessibilityProvider>
     </AuthProvider>
   );
@@ -27,8 +30,12 @@ export default function App() {
 function AppNavigation() {
   const { config } = useAccessibility();
   const theme = getNavigationTheme(config.color.colors, { fontFamily: config.typography.fontFamily });
+  const linking = {
+    prefixes: ["eduwave://"],
+    config: { screens: { Invite: "invite" } }
+  };
   return (
-    <NavigationContainer theme={theme}>
+    <NavigationContainer theme={theme} linking={linking}>
       <RootNavigator />
     </NavigationContainer>
   );

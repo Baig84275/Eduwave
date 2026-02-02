@@ -24,6 +24,9 @@ jest.mock("../src/lib/prisma", () => {
         findUnique: jest.fn(async ({ where }: any) => {
           return users.find((u) => u.email === where.email) ?? null;
         })
+      },
+      auditEvent: {
+        create: jest.fn(async () => ({ id: "ae_1" }))
       }
     }
   };
@@ -53,4 +56,3 @@ describe("auth", () => {
     expect(login.body.accessToken).toBeTruthy();
   });
 });
-

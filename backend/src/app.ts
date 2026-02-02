@@ -1,11 +1,11 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 import { getEnv } from "./lib/env";
 import { router } from "./routes";
+import { uploadsRouter } from "./routes/uploads";
 
 export function createApp() {
   const env = getEnv();
@@ -15,8 +15,7 @@ export function createApp() {
   app.use(cors({ origin: true, credentials: true }));
   app.use(express.json({ limit: "2mb" }));
 
-  const uploadsDir = path.resolve(process.cwd(), "uploads");
-  app.use("/uploads", express.static(uploadsDir));
+  app.use("/uploads", uploadsRouter);
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
   app.use(router);

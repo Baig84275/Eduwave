@@ -99,6 +99,14 @@ export function ChildDetailScreen({ route, navigation }: Props) {
         contentContainerStyle={{ paddingVertical: 4, gap: 10 }}
         data={updates}
         keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <Card style={{ backgroundColor: colors.surfaceAlt }}>
+            <Text style={{ color: colors.text, fontWeight: "900" }}>No updates yet</Text>
+            <Text style={{ color: colors.textMuted, marginTop: 6 }}>
+              Add an update or upload media to start building evidence over time.
+            </Text>
+          </Card>
+        }
         renderItem={({ item }) => {
           return (
             <Card>

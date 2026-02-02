@@ -2,7 +2,7 @@ import { AuthSession } from "./types";
 import { getApiBaseUrl } from "./baseUrl";
 
 async function request<T>(
-  method: "GET" | "POST" | "PATCH",
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
   session?: AuthSession | null
@@ -11,7 +11,7 @@ async function request<T>(
   const res = await fetch(url, {
     method,
     headers: {
-      "content-type": "application/json",
+      ...(method === "DELETE" && !body ? {} : { "content-type": "application/json" }),
       ...(session ? { authorization: `Bearer ${session.accessToken}` } : {})
     },
     body: body ? JSON.stringify(body) : undefined
@@ -27,5 +27,7 @@ async function request<T>(
 export const api = {
   get: <T>(path: string, session?: AuthSession | null) => request<T>("GET", path, undefined, session),
   post: <T>(path: string, body: unknown, session?: AuthSession | null) => request<T>("POST", path, body, session),
-  patch: <T>(path: string, body: unknown, session?: AuthSession | null) => request<T>("PATCH", path, body, session)
+  patch: <T>(path: string, body: unknown, session?: AuthSession | null) => request<T>("PATCH", path, body, session),
+  put: <T>(path: string, body: unknown, session?: AuthSession | null) => request<T>("PUT", path, body, session),
+  del: <T>(path: string, session?: AuthSession | null) => request<T>("DELETE", path, undefined, session)
 };
