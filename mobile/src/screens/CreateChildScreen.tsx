@@ -1,7 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useState } from "react";
-import { Image, Text, View } from "react-native";
+import { Image, View } from "react-native";
 import { api } from "../api/client";
 import { uploadFile } from "../api/upload";
 import { Child } from "../api/types";
@@ -12,6 +12,9 @@ import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Screen } from "../ui/Screen";
 import { TextField } from "../ui/TextField";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
+import { AppText } from "../ui/Text";
 
 type Props = NativeStackScreenProps<MainStackParamList, "CreateChild">;
 
@@ -28,10 +31,7 @@ export function CreateChildScreen({ navigation }: Props) {
 
   return (
     <Screen>
-      <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text, letterSpacing: config.typography.letterSpacing }}>
-        Create child profile
-      </Text>
-      <Text style={{ fontSize: 14, color: colors.textMuted, marginTop: -6 }}>Add details and an optional photo</Text>
+      <ScreenHeader title="Create child profile" subtitle="Add details and an optional photo" />
 
       <TextField label="Name" value={name} onChangeText={setName} placeholder="Child name" />
       <TextField
@@ -50,10 +50,12 @@ export function CreateChildScreen({ navigation }: Props) {
 
       <Card style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <View style={{ flex: 1, gap: 4 }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.text }}>Profile picture</Text>
-          <Text style={{ color: colors.textMuted, fontSize: 13 }}>
+          <AppText variant="label" weight="semibold">
+            Profile picture
+          </AppText>
+          <AppText variant="caption" tone="muted">
             {profileUri ? "Selected" : "Optional"}
-          </Text>
+          </AppText>
         </View>
         {profileUri ? (
           <Image
@@ -73,7 +75,7 @@ export function CreateChildScreen({ navigation }: Props) {
         }}
       />
 
-      {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
+      {error ? <InlineAlert tone="danger" text={error} /> : null}
       <AppButton
         title={loading ? "Creating..." : "Create child"}
         loading={loading}

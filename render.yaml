@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: eduwave-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run prisma:deploy && npm run start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eduwave-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY_BASE64
+        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: UPLOADS_PUBLIC_BASE_URL
+        value: https://eduwave-backend.onrender.com/uploads
+
+databases:
+  - name: eduwave-db
+    databaseName: eduwave
+    user: eduwave_user

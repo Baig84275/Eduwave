@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useState } from "react";
-import { FlatList, Text, View } from "react-native";
+import { FlatList, View } from "react-native";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 import { api } from "../api/client";
 import { ProgressUpdate } from "../api/types";
@@ -10,6 +10,9 @@ import { MainStackParamList } from "../navigation/MainStack";
 import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Screen } from "../ui/Screen";
+import { AppText } from "../ui/Text";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
 
 type Props = NativeStackScreenProps<MainStackParamList, "Approvals">;
 
@@ -46,30 +49,47 @@ export function ApprovalsScreen({ route }: Props) {
 
   return (
     <Screen>
-      <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text, letterSpacing: config.typography.letterSpacing }}>
-        Approvals
-      </Text>
-      <Text style={{ fontSize: 14, color: colors.textMuted, marginTop: -6 }}>Review and decide on updates</Text>
+      <ScreenHeader title="Approvals" subtitle="Review and decide on updates" />
 
       {session?.user.role !== "PARENT" ? (
         <Card>
-          <Text style={{ color: colors.text, fontWeight: "700" }}>Only parents can approve updates.</Text>
-          <Text style={{ color: colors.textMuted, marginTop: 6 }}>Switch to a parent account to continue.</Text>
+          <AppText variant="label" weight="black">Only parents can approve updates.</AppText>
+          <AppText variant="body" tone="muted" style={{ marginTop: 8 }}>Switch to a parent account to continue.</AppText>
         </Card>
       ) : null}
-      {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
+
+      {error ? <InlineAlert tone="danger" text={error} /> : null}
+
       <FlatList
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingVertical: 4, gap: 10 }}
+        contentContainerStyle={{ paddingVertical: 12, gap: 12 }}
         data={updates}
         keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <Card style={{ backgroundColor: colors.surfaceAlt }}>
+            <AppText variant="label" weight="black">No pending approvals</AppText>
+            <AppText variant="body" tone="muted" style={{ marginTop: 8 }}>
+              When a facilitator submits an update, it will appear here for review.
+            </AppText>
+          </Card>
+        }
         renderItem={({ item }) => {
           return (
             <Card>
-              <Text style={{ fontWeight: "800", color: colors.text }}>{item.type}</Text>
-              {item.milestoneTitle ? <Text style={{ marginTop: 8, color: colors.text }}>Milestone: {item.milestoneTitle}</Text> : null}
-              {item.note ? <Text style={{ marginTop: 8, color: colors.text }}>Note: {item.note}</Text> : null}
-              <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <AppText variant="label" weight="black">{item.type}</AppText>
+                <AppText variant="caption" tone="muted">{new Date(item.createdAt).toLocaleDateString()}</AppText>
+              </View>
+              
+              {item.milestoneTitle ? (
+                 <AppText variant="body" style={{ marginTop: 8 }}>Milestone: <AppText weight="bold">{item.milestoneTitle}</AppText></AppText>
+              ) : null}
+              
+              {item.note ? (
+                 <AppText variant="body" tone="muted" style={{ marginTop: 8 }}>Note: {item.note}</AppText>
+              ) : null}
+
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
                 <View style={{ flex: 1 }}>
                   <AppButton
                     title="Approve"
@@ -101,7 +121,6 @@ export function ApprovalsScreen({ route }: Props) {
                   />
                 </View>
               </View>
-              <Text style={{ color: colors.textMuted, marginTop: 10 }}>{new Date(item.createdAt).toLocaleString()}</Text>
             </Card>
           );
         }}

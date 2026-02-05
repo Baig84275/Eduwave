@@ -6,13 +6,16 @@ export async function assertChildReadAccessOrThrow(user: { id: string; role: Rol
     return;
   }
   if (user.role === Role.PARENT) {
-    const exists = await prisma.child.findFirst({ where: { id: childId, parentId: user.id }, select: { id: true } });
+    const exists = await prisma.child.findFirst({
+      where: { id: childId, parentId: user.id, deletedAt: null },
+      select: { id: true }
+    });
     if (!exists) throw Object.assign(new Error("Not found"), { status: 404 });
     return;
   }
   if (user.role === Role.FACILITATOR) {
     const exists = await prisma.facilitatorAssignment.findFirst({
-      where: { childId, facilitatorId: user.id },
+      where: { childId, facilitatorId: user.id, child: { deletedAt: null } },
       select: { id: true }
     });
     if (!exists) throw Object.assign(new Error("Not found"), { status: 404 });
@@ -26,13 +29,16 @@ export async function assertChildWriteAccessOrThrow(user: { id: string; role: Ro
     return;
   }
   if (user.role === Role.PARENT) {
-    const exists = await prisma.child.findFirst({ where: { id: childId, parentId: user.id }, select: { id: true } });
+    const exists = await prisma.child.findFirst({
+      where: { id: childId, parentId: user.id, deletedAt: null },
+      select: { id: true }
+    });
     if (!exists) throw Object.assign(new Error("Not found"), { status: 404 });
     return;
   }
   if (user.role === Role.FACILITATOR) {
     const exists = await prisma.facilitatorAssignment.findFirst({
-      where: { childId, facilitatorId: user.id },
+      where: { childId, facilitatorId: user.id, child: { deletedAt: null } },
       select: { id: true }
     });
     if (!exists) throw Object.assign(new Error("Not found"), { status: 404 });
@@ -40,4 +46,3 @@ export async function assertChildWriteAccessOrThrow(user: { id: string; role: Ro
   }
   throw Object.assign(new Error("Forbidden"), { status: 403 });
 }
-

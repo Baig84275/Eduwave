@@ -11,8 +11,19 @@ datasource db {
 enum Role {
   PARENT
   FACILITATOR
+  TEACHER
+  THERAPIST
+  TRAINER_SUPERVISOR
+  ORG_ADMIN
   ADMIN
   SUPER_ADMIN
+}
+
+enum LanguageCode {
+  EN
+  AF
+  XH
+  FR
 }
 
 enum AccessibilityMode {
@@ -22,6 +33,12 @@ enum AccessibilityMode {
   HEARING_SUPPORT
   MOBILITY_SUPPORT
   NEURODIVERSE
+}
+
+enum FacilitatorStatus {
+  ACTIVE
+  PAUSED
+  EXITED
 }
 
 enum ProgressUpdateType {
@@ -42,19 +59,144 @@ enum MediaKind {
   DOCUMENT
 }
 
+enum ResourceCategory {
+  SCHOOL
+  THERAPIST_SPECIALIST
+  NGO
+  ORGANISATION
+  SUPPORT_SERVICE
+}
+
+enum CheckInFrequency {
+  DAILY
+  WEEKLY
+}
+
+enum SupportNeeded {
+  NONE
+  SOME
+  URGENT
+}
+
+enum SettingContext {
+  HOME
+  SCHOOL
+  MIXED
+  OTHER
+}
+
+enum AdminPermission {
+  DELETE_USERS
+  DELETE_CHILDREN
+}
+
+enum TrainingCompletionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model Organisation {
+  id        String   @id @default(cuid())
+  name      String
+  province  String?
+  city      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+}
+
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
   passwordHash  String
   role          Role
   accessibilityMode AccessibilityMode?
+  accessibilityConfig Json?
+  language      LanguageCode @default(EN)
+  facilitatorStatus FacilitatorStatus @default(ACTIVE)
+  organisationId String?
+  deletedAt     DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  organisation            Organisation?       @relation(fields: [organisationId], references: [id])
   children                Child[]             @relation("ParentChildren")
   createdUpdates          ProgressUpdate[]    @relation("CreatedUpdates")
   decidedUpdates          ProgressUpdate[]    @relation("DecidedUpdates")
   facilitatorAssignments  FacilitatorAssignment[] @relation("FacilitatorAssignments")
+  createdResources        Resource[]          @relation("CreatedResources")
+  checkIns                FacilitatorCheckIn[]
+  supervisionGiven        SupervisionLog[]    @relation("SupervisionGiven")
+  supervisionReceived     SupervisionLog[]    @relation("SupervisionReceived")
+  trainingAssignments     TrainingAssignment[] @relation("TrainingAssignments")
+  trainingAssignedBy      TrainingAssignment[] @relation("TrainingAssignedBy")
+  trainingCompletions     TrainingCompletion[]
+  trainingReflections     TrainingReflection[]
+  permissionsGranted      UserPermission[]    @relation("PermissionsGrantedTo")
+  permissionsIssued       UserPermission[]    @relation("PermissionsGrantedBy")
+  auditEvents             AuditEvent[]
+  sentInvitations         ProfessionalInvitation[] @relation("SentInvitations")
+  parentConnections       ProfessionalConnection[] @relation("ParentConnections")
+  professionalConnections ProfessionalConnection[] @relation("ProfessionalConnections")
+
+  @@index([organisationId])
+  @@index([deletedAt])
+}
+
+model UserPermission {
+  id          String          @id @default(cuid())
+  userId      String
+  permission  AdminPermission
+  grantedById String
+  grantedAt   DateTime        @default(now())
+
+  user      User @relation("PermissionsGrantedTo", fields: [userId], references: [id])
+  grantedBy User @relation("PermissionsGrantedBy", fields: [grantedById], references: [id])
+
+  @@unique([userId, permission])
+  @@index([permission])
+  @@index([grantedAt])
+}
+
+model ProfessionalInvitation {
+  id           String           @id @default(cuid())
+  invitedById  String
+  inviteeEmail String
+  inviteeRole  Role
+  status       InvitationStatus @default(PENDING)
+  message      String?
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+  rejectedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  invitedBy User @relation("SentInvitations", fields: [invitedById], references: [id])
+
+  @@index([inviteeEmail])
+  @@index([status])
+}
+
+model ProfessionalConnection {
+  id             String   @id @default(cuid())
+  parentId       String
+  professionalId String
+  createdAt      DateTime @default(now())
+
+  parent       User @relation("ParentConnections", fields: [parentId], references: [id])
+  professional User @relation("ProfessionalConnections", fields: [professionalId], references: [id])
+
+  @@unique([parentId, professionalId])
+  @@index([professionalId])
 }
 
 model Child {
@@ -64,14 +206,17 @@ model Child {
   dateOfBirth       DateTime
   healthStatusEnc   String?
   profilePictureUrl String?
+  deletedAt         DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   parent                User                   @relation("ParentChildren", fields: [parentId], references: [id])
   progressUpdates       ProgressUpdate[]
   facilitatorAssignments FacilitatorAssignment[]
+  supervisionLogs       SupervisionLog[] @relation("ChildSupervisionLogs")
 
   @@index([parentId])
+  @@index([deletedAt])
 }
 
 model FacilitatorAssignment {
@@ -124,4 +269,186 @@ model Media {
   progressUpdate ProgressUpdate @relation(fields: [progressUpdateId], references: [id])
 
   @@index([progressUpdateId])
+}
+
+model Resource {
+  id          String           @id @default(cuid())
+  name        String
+  category    ResourceCategory
+  province    String
+  city        String
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  imageUrl    String?
+  logoUrl     String?
+  iconCategory String?
+  contactInfo String?
+  description String?
+  tags        String[]         @default([])
+  createdById String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  createdBy User @relation("CreatedResources", fields: [createdById], references: [id])
+
+  @@index([province, category])
+  @@index([latitude, longitude])
+  @@index([createdAt])
+}
+
+model FacilitatorCheckIn {
+  id            String           @id @default(cuid())
+  facilitatorId String
+  frequency     CheckInFrequency
+  periodStart   DateTime
+  confidence    Int
+  emotionalLoad Int
+  supportNeeded SupportNeeded
+  settingContext SettingContext?
+  specificEvent  String?
+  weekNumber     Int?
+  monthNumber    Int?
+  quarter        String?
+  noteEnc       String?
+  createdAt     DateTime         @default(now())
+
+  facilitator User @relation(fields: [facilitatorId], references: [id])
+
+  @@unique([facilitatorId, frequency, periodStart])
+  @@index([facilitatorId, createdAt])
+  @@index([supportNeeded])
+  @@index([weekNumber, monthNumber, quarter])
+}
+
+model SupervisionLog {
+  id              String   @id @default(cuid())
+  facilitatorId   String
+  supervisorId    String
+  childId         String?
+  observationDate DateTime
+  strengthsEnc    String?
+  challengesEnc   String?
+  strategiesEnc   String?
+  followUpRequired Boolean @default(false)
+  followUpDate     DateTime?
+  followUpCompleted Boolean @default(false)
+  facilitatorResponseEnc String?
+  actionsTakenEnc        String?
+  outcomeNotesEnc        String?
+  previousLogId   String?
+  acknowledgedAt  DateTime?
+  createdAt       DateTime @default(now())
+
+  facilitator User  @relation("SupervisionReceived", fields: [facilitatorId], references: [id])
+  supervisor  User  @relation("SupervisionGiven", fields: [supervisorId], references: [id])
+  child       Child? @relation("ChildSupervisionLogs", fields: [childId], references: [id])
+  previousLog SupervisionLog? @relation("SupervisionLogChain", fields: [previousLogId], references: [id])
+  nextLogs    SupervisionLog[] @relation("SupervisionLogChain")
+
+  @@index([facilitatorId, createdAt])
+  @@index([followUpRequired])
+  @@index([followUpCompleted])
+}
+
+model TrainingModule {
+  id         String   @id @default(cuid())
+  courseId   String
+  moduleName String
+  lmsUrl     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  assignments TrainingAssignment[]
+  completions TrainingCompletion[]
+  reflections TrainingReflection[]
+
+  @@unique([courseId, moduleName])
+}
+
+model TrainingCourse {
+  id            String   @id @default(cuid())
+  title         String
+  levelNumber   Int
+  description   String?
+  learnworldsUrl String
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([levelNumber])
+  @@index([active])
+}
+
+model TrainingAssignment {
+  id           String   @id @default(cuid())
+  moduleId     String
+  userId       String
+  assignedById String
+  assignedAt   DateTime @default(now())
+
+  module     TrainingModule @relation(fields: [moduleId], references: [id])
+  user       User           @relation("TrainingAssignments", fields: [userId], references: [id])
+  assignedBy User           @relation("TrainingAssignedBy", fields: [assignedById], references: [id])
+
+  @@unique([moduleId, userId])
+  @@index([userId, assignedAt])
+}
+
+model TrainingCompletion {
+  id         String                   @id @default(cuid())
+  moduleId   String
+  userId     String
+  status     TrainingCompletionStatus @default(NOT_STARTED)
+  completedAt DateTime?
+  updatedAt  DateTime                @updatedAt
+
+  module TrainingModule @relation(fields: [moduleId], references: [id])
+  user   User           @relation(fields: [userId], references: [id])
+
+  @@unique([moduleId, userId])
+  @@index([status])
+}
+
+model TrainingReflection {
+  id              String   @id @default(cuid())
+  facilitatorId   String
+  courseId        String
+  moduleId        String?
+  moduleName      String
+  reflectionText  String
+  applicationNote String
+  challengesFaced String?
+  supportNeeded   String?
+  wasHelpful      Boolean?
+  helpfulRating   Int?
+  confidenceChange Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  facilitator User          @relation(fields: [facilitatorId], references: [id])
+  module      TrainingModule? @relation(fields: [moduleId], references: [id])
+
+  @@unique([facilitatorId, moduleId])
+  @@index([facilitatorId, createdAt])
+  @@index([courseId])
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  Role?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }
