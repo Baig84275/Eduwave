@@ -1,7 +1,8 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { MainStackParamList } from "../navigation/MainStack";
@@ -10,6 +11,9 @@ import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
 import { TextField } from "../ui/TextField";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { AppText } from "../ui/Text";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
 
 type Props = NativeStackScreenProps<MainStackParamList, "CreateSupervisionLog">;
 
@@ -57,11 +61,14 @@ export function CreateSupervisionLogScreen({ navigation }: Props) {
 
   return (
     <ScrollScreen>
-      <View style={{ gap: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>Create Supervision Log</Text>
-        <Text style={{ color: colors.textMuted }}>One-way support record. Facilitator can optionally acknowledge.</Text>
+      <View style={{ gap: 16 }}>
+        <ScreenHeader 
+          title="Create Supervision Log" 
+          subtitle="One-way support record. Facilitator can optionally acknowledge." 
+        />
 
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: 12 }}>
+          <AppText variant="h3">Facilitator</AppText>
           <TextField
             label="Search facilitator"
             value={facilitatorSearch}
@@ -79,18 +86,18 @@ export function CreateSupervisionLogScreen({ navigation }: Props) {
 
           {facilitatorId ? (
             <Card style={{ backgroundColor: colors.surfaceAlt }}>
-              <Text style={{ color: colors.textMuted }}>Selected facilitator</Text>
-              <Text style={{ color: colors.text, fontWeight: "900", marginTop: 6 }}>{facilitatorId}</Text>
+              <AppText variant="caption" tone="muted">Selected facilitator</AppText>
+              <AppText variant="body" weight="black" style={{ marginTop: 4 }}>{facilitatorId}</AppText>
             </Card>
           ) : (
             <Card style={{ backgroundColor: colors.surfaceAlt }}>
-              <Text style={{ color: colors.textMuted }}>Select a facilitator before creating a log</Text>
+              <AppText variant="body" tone="muted">Select a facilitator before creating a log</AppText>
             </Card>
           )}
 
           {facilitators.length ? (
-            <View style={{ gap: 10 }}>
-              {facilitators.slice(0, 10).map((u) => {
+            <View style={{ gap: 8 }}>
+              {facilitators.slice(0, 5).map((u) => {
                 const selected = facilitatorId === u.id;
                 return (
                   <Pressable
@@ -98,9 +105,13 @@ export function CreateSupervisionLogScreen({ navigation }: Props) {
                     onPress={() => setFacilitatorId(u.id)}
                     style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
                   >
-                    <Card style={{ borderColor: selected ? colors.focusRing : colors.border, borderWidth: selected ? 2 : 1 }}>
-                      <Text style={{ color: colors.text, fontWeight: "900" }}>{u.email}</Text>
-                      <Text style={{ color: colors.textMuted, marginTop: 6 }}>{u.id}</Text>
+                    <Card style={{ 
+                      borderColor: selected ? colors.primary : colors.border, 
+                      borderWidth: selected ? 2 : 1,
+                      backgroundColor: selected ? colors.surface : colors.surfaceAlt
+                    }}>
+                      <AppText variant="label" weight="black" style={{ color: selected ? colors.primary : colors.text }}>{u.email}</AppText>
+                      <AppText variant="caption" tone="muted" style={{ marginTop: 4 }}>{u.id}</AppText>
                     </Card>
                   </Pressable>
                 );
@@ -108,112 +119,132 @@ export function CreateSupervisionLogScreen({ navigation }: Props) {
             </View>
           ) : null}
         </View>
-        <TextField label="Child ID (optional)" value={childId} onChangeText={setChildId} placeholder="Optional" />
-        <TextField
-          label="Observation date (ISO)"
-          value={observationDate}
-          onChangeText={setObservationDate}
-          placeholder={new Date().toISOString()}
-        />
-        <TextField
-          label="Strengths observed"
-          value={strengths}
-          onChangeText={setStrengths}
-          placeholder="Optional"
-          multiline
-          style={{ minHeight: 90, textAlignVertical: "top" }}
-        />
-        <TextField
-          label="Challenges identified"
-          value={challenges}
-          onChangeText={setChallenges}
-          placeholder="Optional"
-          multiline
-          style={{ minHeight: 90, textAlignVertical: "top" }}
-        />
-        <TextField
-          label="Strategies recommended"
-          value={strategies}
-          onChangeText={setStrategies}
-          placeholder="Optional"
-          multiline
-          style={{ minHeight: 90, textAlignVertical: "top" }}
-        />
 
-        <Pressable
-          onPress={() => setFollowUpRequired((v) => !v)}
-          style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
-        >
-          <Card
-            style={{
-              borderColor: followUpRequired ? colors.focusRing : colors.border,
-              borderWidth: followUpRequired ? 2 : 1
-            }}
-          >
-            <Text style={{ color: colors.text, fontWeight: "900" }}>
-              Follow-up required: {followUpRequired ? "Yes" : "No"}
-            </Text>
-          </Card>
-        </Pressable>
+        <View style={{ gap: 12 }}>
+            <AppText variant="h3">Details</AppText>
+            <TextField label="Child ID (optional)" value={childId} onChangeText={setChildId} placeholder="Optional" />
+            <TextField
+              label="Observation date (ISO)"
+              value={observationDate}
+              onChangeText={setObservationDate}
+              placeholder={new Date().toISOString()}
+            />
+            <TextField
+              label="Strengths observed"
+              value={strengths}
+              onChangeText={setStrengths}
+              placeholder="Optional"
+              multiline
+              style={{ minHeight: 90, textAlignVertical: "top" }}
+            />
+            <TextField
+              label="Challenges identified"
+              value={challenges}
+              onChangeText={setChallenges}
+              placeholder="Optional"
+              multiline
+              style={{ minHeight: 90, textAlignVertical: "top" }}
+            />
+            <TextField
+              label="Strategies recommended"
+              value={strategies}
+              onChangeText={setStrategies}
+              placeholder="Optional"
+              multiline
+              style={{ minHeight: 90, textAlignVertical: "top" }}
+            />
+    
+            <Pressable
+              onPress={() => setFollowUpRequired((v) => !v)}
+              style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
+            >
+              <Card
+                style={{
+                  borderColor: followUpRequired ? colors.primary : colors.border,
+                  borderWidth: followUpRequired ? 2 : 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <View>
+                    <AppText variant="label" weight="black" style={{ color: followUpRequired ? colors.primary : colors.text }}>
+                      Follow-up required
+                    </AppText>
+                    <AppText variant="caption" tone="muted">Flag for supervisor attention</AppText>
+                </View>
+                <MaterialCommunityIcons 
+                   name={followUpRequired ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"} 
+                   size={24} 
+                   color={followUpRequired ? colors.primary : colors.textMuted} 
+                />
+              </Card>
+            </Pressable>
+    
+            <TextField
+              label="Follow-up date (ISO, optional)"
+              value={followUpDate}
+              onChangeText={setFollowUpDate}
+              placeholder="e.g., 2026-02-10T00:00:00.000Z"
+            />
+            <TextField label="Previous log ID (optional)" value={previousLogId} onChangeText={setPreviousLogId} placeholder="Optional" />
+        </View>
 
-        <TextField
-          label="Follow-up date (ISO, optional)"
-          value={followUpDate}
-          onChangeText={setFollowUpDate}
-          placeholder="e.g., 2026-02-10T00:00:00.000Z"
-        />
-        <TextField label="Previous log ID (optional)" value={previousLogId} onChangeText={setPreviousLogId} placeholder="Optional" />
+        {error ? <InlineAlert tone="danger" text={error} /> : null}
+        {success ? <InlineAlert tone="success" text={success} /> : null}
 
-        {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
-        {success ? <Text style={{ color: colors.primary, fontSize: 13 }}>{success}</Text> : null}
-
-        <AppButton
-          title={saving ? "Saving..." : "Create log"}
-          loading={saving}
-          disabled={saving}
-          onPress={async () => {
-            if (!session) return;
-            if (!facilitatorId.trim()) {
-              setError("Select a facilitator");
-              return;
-            }
-            setSaving(true);
-            setError(null);
-            setSuccess(null);
-            try {
-              await api.post(
-                "/supervision-logs",
-                {
-                  facilitatorId: facilitatorId.trim(),
-                  childId: childId.trim() ? childId.trim() : null,
-                  observationDate,
-                  strengths: strengths.trim() ? strengths.trim() : null,
-                  challenges: challenges.trim() ? challenges.trim() : null,
-                  strategies: strategies.trim() ? strategies.trim() : null,
-                  followUpRequired,
-                  followUpDate: followUpDate.trim() ? followUpDate.trim() : null,
-                  previousLogId: previousLogId.trim() ? previousLogId.trim() : null
-                },
-                session
-              );
-              setSuccess("Created");
-              setFacilitatorId("");
-              setChildId("");
-              setStrengths("");
-              setChallenges("");
-              setStrategies("");
-              setFollowUpRequired(false);
-              setFollowUpDate("");
-              setPreviousLogId("");
-            } catch (e: any) {
-              setError(e?.message ?? "Failed to create");
-            } finally {
-              setSaving(false);
-            }
-          }}
-        />
-
-        <AppButton title="Back" variant="secondary" onPress={() => navigation.goBack()} />
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ flex: 1 }}>
+                <AppButton
+                  title={saving ? "Saving..." : "Create log"}
+                  loading={saving}
+                  disabled={saving}
+                  onPress={async () => {
+                    if (!session) return;
+                    if (!facilitatorId.trim()) {
+                      setError("Select a facilitator");
+                      return;
+                    }
+                    setSaving(true);
+                    setError(null);
+                    setSuccess(null);
+                    try {
+                      await api.post(
+                        "/supervision-logs",
+                        {
+                          facilitatorId: facilitatorId.trim(),
+                          childId: childId.trim() ? childId.trim() : null,
+                          observationDate,
+                          strengths: strengths.trim() ? strengths.trim() : null,
+                          challenges: challenges.trim() ? challenges.trim() : null,
+                          strategies: strategies.trim() ? strategies.trim() : null,
+                          followUpRequired,
+                          followUpDate: followUpDate.trim() ? followUpDate.trim() : null,
+                          previousLogId: previousLogId.trim() ? previousLogId.trim() : null
+                        },
+                        session
+                      );
+                      setSuccess("Created");
+                      setFacilitatorId("");
+                      setChildId("");
+                      setStrengths("");
+                      setChallenges("");
+                      setStrategies("");
+                      setFollowUpRequired(false);
+                      setFollowUpDate("");
+                      setPreviousLogId("");
+                    } catch (e: any) {
+                      setError(e?.message ?? "Failed to create");
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                />
+            </View>
+            <View style={{ flex: 1 }}>
+                <AppButton title="Back" variant="secondary" onPress={() => navigation.goBack()} />
+            </View>
+        </View>
       </View>
     </ScrollScreen>
   );

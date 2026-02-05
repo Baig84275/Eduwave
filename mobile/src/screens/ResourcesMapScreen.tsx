@@ -2,7 +2,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Location from "expo-location";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Alert, Linking, NativeModules, Platform, Text, View } from "react-native";
+import { Alert, Linking, NativeModules, Platform, View } from "react-native";
 import { api } from "../api/client";
 import { Resource } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -11,6 +11,9 @@ import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
+import { AppText } from "../ui/Text";
 
 type Props = NativeStackScreenProps<MainStackParamList, "ResourcesMap">;
 
@@ -100,20 +103,14 @@ export function ResourcesMapScreen({ navigation }: Props) {
 
   return (
     <ScrollScreen>
-      <View style={{ gap: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>Resources map</Text>
-        <Text style={{ color: colors.textMuted }}>Shows nearby resources within 50 km of your location.</Text>
+      <View style={{ gap: 16 }}>
+        <ScreenHeader title="Resources map" subtitle="Shows nearby resources within 50 km of your location." />
 
-        {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
+        {error ? <InlineAlert tone="danger" text={error} /> : null}
 
-        <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
-          <AppButton title={loading ? "Loading..." : "Refresh"} variant="secondary" onPress={() => void loadNearMe()} />
-          <AppButton title="Back" variant="secondary" onPress={() => navigation.goBack()} />
-        </View>
-
-        <Card style={{ padding: 0, overflow: "hidden" }}>
+        <Card style={{ padding: 0, overflow: "hidden", minHeight: 200 }}>
           {MapView && Marker ? (
-            <MapView style={{ height: 380, width: "100%" }} region={region} onRegionChangeComplete={setRegion}>
+            <MapView style={{ height: 400, width: "100%" }} region={region} onRegionChangeComplete={setRegion}>
               {coordinateResources.map((r) => (
                 <Marker
                   key={r.id}
@@ -124,12 +121,12 @@ export function ResourcesMapScreen({ navigation }: Props) {
                 >
                   {Callout ? (
                     <Callout onPress={() => openNativeMaps(r)}>
-                      <View style={{ maxWidth: 220, paddingVertical: 6 }}>
-                        <Text style={{ fontWeight: "900" }}>{r.name}</Text>
-                        <Text style={{ marginTop: 4, color: "#475569" }}>
+                      <View style={{ maxWidth: 220, paddingVertical: 6, gap: 4 }}>
+                        <AppText variant="label" weight="black">{r.name}</AppText>
+                        <AppText variant="caption" tone="muted">
                           {(typeof r.distanceKm === "number" ? r.distanceKm : r.distance)?.toFixed?.(1) ?? "?"} km · {r.category}
-                        </Text>
-                        <Text style={{ marginTop: 6, color: "#2563EB", fontWeight: "800" }}>Navigate to</Text>
+                        </AppText>
+                        <AppText variant="caption" weight="bold" style={{ color: colors.primary }}>Navigate to</AppText>
                       </View>
                     </Callout>
                   ) : null}
@@ -137,20 +134,29 @@ export function ResourcesMapScreen({ navigation }: Props) {
               ))}
             </MapView>
           ) : (
-            <View style={{ padding: 14 }}>
-              <Text style={{ color: colors.text, fontWeight: "900" }}>Map not available in this build</Text>
-              <Text style={{ color: colors.textMuted, marginTop: 8 }}>
-                This screen uses react-native-maps, which requires a custom iOS/Android build. Nearby resources are still loaded for the list view.
-              </Text>
+            <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center' }}>
+              <AppText variant="h3" style={{ marginBottom: 8 }}>Map not available</AppText>
+              <AppText variant="body" tone="muted" style={{ textAlign: 'center' }}>
+                This screen uses native maps, which requires a custom build. The list view will still work.
+              </AppText>
             </View>
           )}
         </Card>
 
         <Card style={{ backgroundColor: colors.surfaceAlt }}>
-          <Text style={{ color: colors.textMuted }}>
+          <AppText variant="caption" tone="muted">
             Showing {coordinateResources.length} resources with coordinates (out of {resources.length}).
-          </Text>
+          </AppText>
         </Card>
+
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <AppButton title={loading ? "Loading..." : "Refresh"} variant="secondary" onPress={() => void loadNearMe()} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppButton title="Back" variant="secondary" onPress={() => navigation.goBack()} />
+          </View>
+        </View>
       </View>
     </ScrollScreen>
   );

@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { FlatList, Pressable, View } from "react-native";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 import { api } from "../api/client";
 import { Role } from "../api/types";
@@ -10,6 +10,9 @@ import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Screen } from "../ui/Screen";
 import { TextField } from "../ui/TextField";
+import { AppText } from "../ui/Text";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
 
 type Props = NativeStackScreenProps<MainStackParamList, "AssignFacilitator">;
 
@@ -61,9 +64,10 @@ export function AssignFacilitatorScreen({ route, navigation }: Props) {
   if (!isAdmin) {
     return (
       <Screen>
+        <ScreenHeader title="Access Denied" />
         <Card>
-          <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>Admin only</Text>
-          <Text style={{ marginTop: 8, color: colors.textMuted }}>Only admins can assign facilitators.</Text>
+          <AppText variant="label" weight="black">Admin only</AppText>
+          <AppText variant="body" tone="muted" style={{ marginTop: 8 }}>Only admins can assign facilitators.</AppText>
         </Card>
       </Screen>
     );
@@ -71,32 +75,32 @@ export function AssignFacilitatorScreen({ route, navigation }: Props) {
 
   return (
     <Screen>
-      <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text, letterSpacing: config.typography.letterSpacing }}>
-        Assign facilitator
-      </Text>
-      <Text style={{ color: colors.textMuted }}>Child: {childId}</Text>
+      <ScreenHeader 
+        title="Assign facilitator" 
+        subtitle={`Child ID: ${childId}`}
+      />
 
       <TextField label="Search" value={query} onChangeText={setQuery} autoCapitalize="none" placeholder="Search by email" />
 
-      {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
+      {error ? <InlineAlert tone="danger" text={error} /> : null}
 
       <FlatList
         data={facilitators}
         keyExtractor={(u) => u.id}
-        contentContainerStyle={{ gap: 10, paddingBottom: 6 }}
+        contentContainerStyle={{ gap: 12, paddingBottom: 24, paddingTop: 12 }}
         ListEmptyComponent={
-          <Card>
-            <Text style={{ color: colors.text, fontWeight: "900" }}>No facilitators found</Text>
-            <Text style={{ marginTop: 8, color: colors.textMuted }}>
+          <Card style={{ backgroundColor: colors.surfaceAlt }}>
+            <AppText variant="label" weight="black">No facilitators found</AppText>
+            <AppText variant="body" tone="muted" style={{ marginTop: 8 }}>
               Create a facilitator from the Admin screen, then assign it here.
-            </Text>
+            </AppText>
           </Card>
         }
         renderItem={({ item }) => (
           <Pressable style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}>
             <Card>
-              <Text style={{ color: colors.text, fontWeight: "900" }}>{item.email}</Text>
-              <Text style={{ marginTop: 6, color: colors.textMuted }}>{item.id}</Text>
+              <AppText variant="body" weight="black">{item.email}</AppText>
+              <AppText variant="caption" tone="muted" style={{ marginTop: 4 }}>{item.id}</AppText>
               <View style={{ marginTop: 12 }}>
                 <AppButton
                   title={assigningId === item.id ? "Assigning..." : "Assign to child"}
@@ -122,7 +126,7 @@ export function AssignFacilitatorScreen({ route, navigation }: Props) {
         )}
       />
 
-      <View style={{ flexDirection: "row", gap: 10 }}>
+      <View style={{ flexDirection: "row", gap: 12, paddingVertical: 12 }}>
         <View style={{ flex: 1 }}>
           <AppButton title={loading ? "Refreshing..." : "Refresh list"} variant="secondary" onPress={loadUsers} />
         </View>

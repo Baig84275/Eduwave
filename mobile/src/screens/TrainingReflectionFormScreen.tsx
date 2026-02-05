@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { MainStackParamList } from "../navigation/MainStack";
@@ -10,6 +10,9 @@ import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
 import { TextField } from "../ui/TextField";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { AppText } from "../ui/Text";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
 
 type Props = NativeStackScreenProps<MainStackParamList, "TrainingReflection">;
 
@@ -30,11 +33,11 @@ export function TrainingReflectionFormScreen({ navigation, route }: Props) {
 
   return (
     <ScrollScreen>
-      <View style={{ gap: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>Training reflection</Text>
-        <Text style={{ color: colors.textMuted }}>
-          Module: {moduleName} · {courseId}
-        </Text>
+      <View style={{ gap: 16 }}>
+        <ScreenHeader 
+          title="Training reflection" 
+          subtitle={`Module: ${moduleName}`}
+        />
 
         <TextField
           label="What did you learn? (required)"
@@ -73,8 +76,8 @@ export function TrainingReflectionFormScreen({ navigation, route }: Props) {
         />
 
         <Card>
-          <Text style={{ color: colors.text, fontWeight: "900" }}>How helpful was this module?</Text>
-          <View style={{ flexDirection: "row", gap: 6, marginTop: 10 }}>
+          <AppText variant="label" weight="black">How helpful was this module?</AppText>
+          <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
             {[1, 2, 3, 4, 5].map((n) => (
               <Pressable
                 key={n}
@@ -83,7 +86,7 @@ export function TrainingReflectionFormScreen({ navigation, route }: Props) {
               >
                 <MaterialCommunityIcons
                   name={helpfulRating != null && n <= helpfulRating ? "star" : "star-outline"}
-                  size={28}
+                  size={32}
                   color={helpfulRating != null && n <= helpfulRating ? "#F59E0B" : colors.textMuted}
                 />
               </Pressable>
@@ -92,8 +95,8 @@ export function TrainingReflectionFormScreen({ navigation, route }: Props) {
         </Card>
 
         <Card>
-          <Text style={{ color: colors.text, fontWeight: "900" }}>Confidence change (-5 to +5)</Text>
-          <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
+          <AppText variant="label" weight="black">Confidence change (-5 to +5)</AppText>
+          <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
             {[-5, -3, -1, 0, 1, 3, 5].map((n) => {
               const selected = confidenceChange === n;
               return (
@@ -102,8 +105,19 @@ export function TrainingReflectionFormScreen({ navigation, route }: Props) {
                   onPress={() => setConfidenceChange(n)}
                   style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
                 >
-                  <Card style={{ borderColor: selected ? colors.focusRing : colors.border, borderWidth: selected ? 2 : 1 }}>
-                    <Text style={{ color: colors.text, fontWeight: "900" }}>{n > 0 ? `+${n}` : `${n}`}</Text>
+                  <Card style={{ 
+                    borderColor: selected ? colors.primary : colors.border, 
+                    borderWidth: selected ? 2 : 1,
+                    backgroundColor: selected ? colors.surface : colors.surfaceAlt,
+                    width: 48,
+                    height: 48,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0
+                  }}>
+                    <AppText variant="label" weight="black" style={{ color: selected ? colors.primary : colors.text }}>
+                      {n > 0 ? `+${n}` : `${n}`}
+                    </AppText>
                   </Card>
                 </Pressable>
               );
@@ -111,47 +125,52 @@ export function TrainingReflectionFormScreen({ navigation, route }: Props) {
           </View>
         </Card>
 
-        {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
+        {error ? <InlineAlert tone="danger" text={error} /> : null}
 
-        <AppButton
-          title={saving ? "Saving..." : "Submit reflection"}
-          loading={saving}
-          disabled={saving}
-          onPress={async () => {
-            if (!session) return;
-            setSaving(true);
-            setError(null);
-            try {
-              if (!reflectionText.trim() || !applicationNote.trim()) {
-                setError("Please complete the required fields");
-                setSaving(false);
-                return;
-              }
-              await api.post(
-                "/training/reflections",
-                {
-                  courseId,
-                  moduleId,
-                  moduleName,
-                  reflectionText: reflectionText.trim(),
-                  applicationNote: applicationNote.trim(),
-                  challengesFaced: challengesFaced.trim() ? challengesFaced.trim() : null,
-                  supportNeeded: supportNeeded.trim() ? supportNeeded.trim() : null,
-                  helpfulRating,
-                  confidenceChange
-                },
-                session
-              );
-              navigation.navigate("TrainingReflections");
-            } catch (e: any) {
-              setError(e?.message ?? "Failed to save reflection");
-            } finally {
-              setSaving(false);
-            }
-          }}
-        />
-
-        <AppButton title="Back" variant="secondary" onPress={() => navigation.goBack()} />
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ flex: 1 }}>
+                <AppButton
+                  title={saving ? "Saving..." : "Submit reflection"}
+                  loading={saving}
+                  disabled={saving}
+                  onPress={async () => {
+                    if (!session) return;
+                    setSaving(true);
+                    setError(null);
+                    try {
+                      if (!reflectionText.trim() || !applicationNote.trim()) {
+                        setError("Please complete the required fields");
+                        setSaving(false);
+                        return;
+                      }
+                      await api.post(
+                        "/training/reflections",
+                        {
+                          courseId,
+                          moduleId,
+                          moduleName,
+                          reflectionText: reflectionText.trim(),
+                          applicationNote: applicationNote.trim(),
+                          challengesFaced: challengesFaced.trim() ? challengesFaced.trim() : null,
+                          supportNeeded: supportNeeded.trim() ? supportNeeded.trim() : null,
+                          helpfulRating,
+                          confidenceChange
+                        },
+                        session
+                      );
+                      navigation.navigate("TrainingReflections");
+                    } catch (e: any) {
+                      setError(e?.message ?? "Failed to save reflection");
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                />
+            </View>
+            <View style={{ flex: 1 }}>
+                <AppButton title="Back" variant="secondary" onPress={() => navigation.goBack()} />
+            </View>
+        </View>
       </View>
     </ScrollScreen>
   );

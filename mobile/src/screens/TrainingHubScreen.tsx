@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useState } from "react";
-import { Linking, Pressable, Text, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 import { api } from "../api/client";
 import { TrainingCompletionStatus, TrainingModuleItem } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -10,6 +10,9 @@ import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
+import { AppText } from "../ui/Text";
 
 type Props = NativeStackScreenProps<MainStackParamList, "TrainingHub">;
 
@@ -62,13 +65,15 @@ export function TrainingHubScreen({ navigation }: Props) {
   return (
     <ScrollScreen>
       <View style={{ gap: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>Training Hub</Text>
-        <Text style={{ color: colors.textMuted }}>
-          Links-only training tracking. No hosting, quizzes, assessments, or certificates.
-        </Text>
+        <ScreenHeader
+          title="Training"
+          subtitle="Links-only training tracking. No hosting, quizzes, assessments, or certificates."
+        />
 
-        {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
-        <Text style={{ color: colors.textMuted }}>{loading ? "Loading..." : `${modules.length} assigned modules`}</Text>
+        {error ? <InlineAlert tone="danger" text={error} /> : null}
+        <AppText variant="caption" tone="muted">
+          {loading ? "Loading..." : `${modules.length} assigned modules`}
+        </AppText>
 
         <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
           <AppButton title="My reflections" variant="secondary" onPress={() => navigation.navigate("TrainingReflections")} />
@@ -78,14 +83,16 @@ export function TrainingHubScreen({ navigation }: Props) {
         {modules.map((item) => {
           return (
             <Card key={item.module.id}>
-              <Text style={{ color: colors.text, fontWeight: "900", fontSize: 16 }}>{item.module.moduleName}</Text>
-              <Text style={{ color: colors.textMuted, marginTop: 4 }}>
+              <AppText variant="body" weight="black">
+                {item.module.moduleName}
+              </AppText>
+              <AppText variant="caption" tone="muted" style={{ marginTop: 4 }}>
                 Course: {item.module.courseId} · Status: {item.status}
-              </Text>
+              </AppText>
               {item.completedAt ? (
-                <Text style={{ color: colors.textMuted, marginTop: 4 }}>
+                <AppText variant="caption" tone="muted" style={{ marginTop: 4 }}>
                   Completed: {new Date(item.completedAt).toLocaleDateString()}
-                </Text>
+                </AppText>
               ) : null}
               <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
                 <Pressable
@@ -93,7 +100,9 @@ export function TrainingHubScreen({ navigation }: Props) {
                   style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
                 >
                   <Card style={{ backgroundColor: colors.primary }}>
-                    <Text style={{ color: "white", fontWeight: "900" }}>Open</Text>
+                    <AppText variant="label" tone="white" weight="bold">
+                      Open
+                    </AppText>
                   </Card>
                 </Pressable>
 
@@ -103,7 +112,9 @@ export function TrainingHubScreen({ navigation }: Props) {
                     style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
                   >
                     <Card>
-                      <Text style={{ color: colors.text, fontWeight: "900" }}>Mark in progress</Text>
+                      <AppText variant="label" weight="black">
+                        Mark in progress
+                      </AppText>
                     </Card>
                   </Pressable>
                 ) : null}
@@ -114,7 +125,9 @@ export function TrainingHubScreen({ navigation }: Props) {
                     style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
                   >
                     <Card>
-                      <Text style={{ color: colors.text, fontWeight: "900" }}>Mark completed</Text>
+                      <AppText variant="label" weight="black">
+                        Mark completed
+                      </AppText>
                     </Card>
                   </Pressable>
                 ) : null}

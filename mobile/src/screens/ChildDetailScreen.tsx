@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useState } from "react";
-import { FlatList, Text, View } from "react-native";
+import { FlatList, View } from "react-native";
 import { api } from "../api/client";
 import { Child, ProgressUpdate } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -10,6 +10,10 @@ import { useAccessibility } from "../accessibility/AccessibilityProvider";
 import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Screen } from "../ui/Screen";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
+import { AppText } from "../ui/Text";
+import { EmptyState } from "../ui/EmptyState";
 
 type Props = NativeStackScreenProps<MainStackParamList, "Child">;
 
@@ -51,14 +55,10 @@ export function ChildDetailScreen({ route, navigation }: Props) {
   return (
     <Screen>
       <Card>
-        <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text, letterSpacing: config.typography.letterSpacing }}>
-          {child?.name ?? "Child"}
-        </Text>
-        {child?.healthStatus ? (
-          <Text style={{ marginTop: 6, color: colors.textMuted }}>Health: {child.healthStatus}</Text>
-        ) : (
-          <Text style={{ marginTop: 6, color: colors.textMuted }}>Health: Not provided</Text>
-        )}
+        <ScreenHeader
+          title={child?.name ?? "Child"}
+          subtitle={child?.healthStatus ? `Health: ${child.healthStatus}` : "Health: Not provided"}
+        />
       </Card>
 
       <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
@@ -91,32 +91,43 @@ export function ChildDetailScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
+      {error ? <InlineAlert tone="danger" text={error} /> : null}
 
-      <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>Timeline</Text>
+      <AppText variant="body" weight="black">
+        Timeline
+      </AppText>
       <FlatList
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingVertical: 4, gap: 10 }}
+        contentContainerStyle={{ paddingVertical: 4, gap: 12 }}
         data={updates}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <Card style={{ backgroundColor: colors.surfaceAlt }}>
-            <Text style={{ color: colors.text, fontWeight: "900" }}>No updates yet</Text>
-            <Text style={{ color: colors.textMuted, marginTop: 6 }}>
-              Add an update or upload media to start building evidence over time.
-            </Text>
-          </Card>
+          <EmptyState title="No updates yet" message="Add an update or upload media to start building evidence over time." />
         }
         renderItem={({ item }) => {
           return (
             <Card>
-              <Text style={{ fontWeight: "800", color: colors.text }}>
+              <AppText variant="label" weight="black">
                 {item.type} · {item.status}
-              </Text>
-              {item.milestoneTitle ? <Text style={{ marginTop: 8, color: colors.text }}>Milestone: {item.milestoneTitle}</Text> : null}
-              {item.note ? <Text style={{ marginTop: 8, color: colors.text }}>Note: {item.note}</Text> : null}
-              {item.media?.length ? <Text style={{ marginTop: 8, color: colors.textMuted }}>Media: {item.media.length}</Text> : null}
-              <Text style={{ marginTop: 10, color: colors.textMuted }}>{new Date(item.createdAt).toLocaleString()}</Text>
+              </AppText>
+              {item.milestoneTitle ? (
+                <AppText variant="body" style={{ marginTop: 8 }}>
+                  Milestone: {item.milestoneTitle}
+                </AppText>
+              ) : null}
+              {item.note ? (
+                <AppText variant="body" style={{ marginTop: 8 }}>
+                  Note: {item.note}
+                </AppText>
+              ) : null}
+              {item.media?.length ? (
+                <AppText variant="caption" tone="muted" style={{ marginTop: 8 }}>
+                  Media: {item.media.length}
+                </AppText>
+              ) : null}
+              <AppText variant="caption" tone="muted" style={{ marginTop: 10 }}>
+                {new Date(item.createdAt).toLocaleString()}
+              </AppText>
             </Card>
           );
         }}

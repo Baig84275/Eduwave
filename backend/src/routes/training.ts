@@ -11,6 +11,24 @@ export const trainingRouter = Router();
 
 trainingRouter.use(requireAuth);
 
+async function assertFacilitatorOrgScope(requester: { id: string; role: Role }, facilitatorId: string) {
+  if (requester.role !== Role.TRAINER_SUPERVISOR && requester.role !== Role.ORG_ADMIN) return;
+  const [reqUser, facUser] = await Promise.all([
+    prisma.user.findUnique({ where: { id: requester.id }, select: { organisationId: true } }),
+    prisma.user.findUnique({ where: { id: facilitatorId }, select: { organisationId: true, role: true } })
+  ]);
+  if (!facUser || facUser.role !== Role.FACILITATOR) {
+    const err: any = new Error("Not found");
+    err.status = 404;
+    throw err;
+  }
+  if (!reqUser?.organisationId || reqUser.organisationId !== facUser.organisationId) {
+    const err: any = new Error("Forbidden");
+    err.status = 403;
+    throw err;
+  }
+}
+
 const createModuleSchema = z.object({
   courseId: z.string().min(1),
   moduleName: z.string().min(1),
@@ -38,6 +56,19 @@ trainingRouter.post(
       metadata: { courseId: module.courseId, moduleName: module.moduleName }
     });
     res.json({ module });
+  })
+);
+
+trainingRouter.get(
+  "/courses",
+  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  asyncHandler(async (_req, res) => {
+    const courses = await prisma.trainingCourse.findMany({
+      where: { active: true },
+      orderBy: { levelNumber: "asc" },
+      select: { id: true, title: true, levelNumber: true, description: true }
+    });
+    res.json({ courses });
   })
 );
 
@@ -290,5 +321,277 @@ trainingRouter.get(
       }
     });
     res.json({ reflections, pagination: { limit: query.limit, offset: query.offset } });
+  })
+);
+
+trainingRouter.get(
+  "/my-courses",
+  requireRole(Role.FACILITATOR),
+  asyncHandler(async (req, res) => {
+    const userId = req.user!.id;
+
+    const [assignments, completions, courses] = await Promise.all([
+      prisma.trainingAssignment.findMany({
+        where: { userId },
+        orderBy: { assignedAt: "desc" },
+        select: { assignedAt: true, module: { select: { id: true, courseId: true, moduleName: true, lmsUrl: true } } }
+      }),
+      prisma.trainingCompletion.findMany({
+        where: { userId },
+        select: { moduleId: true, status: true, completedAt: true }
+      }),
+      prisma.trainingCourse.findMany({
+        where: { active: true },
+        select: { id: true, title: true, levelNumber: true, description: true, learnworldsUrl: true, active: true }
+      })
+    ]);
+
+    const completionByModule = new Map(completions.map((c) => [c.moduleId, c]));
+    const courseById = new Map(courses.map((c) => [c.id, c]));
+
+    const byCourseId = new Map<
+      string,
+      {
+        courseId: string;
+        course: any;
+        modules: Array<{
+          id: string;
+          moduleName: string;
+          externalUrl: string;
+          assignedAt: Date;
+          completionStatus: TrainingCompletionStatus;
+          completionDate: Date | null;
+        }>;
+      }
+    >();
+
+    for (const a of assignments) {
+      const courseId = a.module.courseId;
+      const course = courseById.get(courseId) ?? {
+        id: courseId,
+        title: courseId,
+        levelNumber: 0,
+        description: null,
+        learnworldsUrl: a.module.lmsUrl,
+        active: true
+      };
+      const entry = byCourseId.get(courseId) ?? { courseId, course, modules: [] as any[] };
+      const comp = completionByModule.get(a.module.id);
+      entry.modules.push({
+        id: a.module.id,
+        moduleName: a.module.moduleName,
+        externalUrl: a.module.lmsUrl,
+        assignedAt: a.assignedAt,
+        completionStatus: comp?.status ?? TrainingCompletionStatus.NOT_STARTED,
+        completionDate: comp?.completedAt ?? null
+      });
+      byCourseId.set(courseId, entry);
+    }
+
+    const result = Array.from(byCourseId.values())
+      .map((c) => ({
+        course: c.course,
+        modules: c.modules.slice().sort((a, b) => a.moduleName.localeCompare(b.moduleName))
+      }))
+      .sort((a, b) => (a.course.levelNumber ?? 0) - (b.course.levelNumber ?? 0));
+
+    res.json({ courses: result });
+  })
+);
+
+const completeModuleSchema = z.object({ moduleId: z.string().min(1) });
+
+trainingRouter.post(
+  "/complete-module",
+  requireRole(Role.FACILITATOR),
+  asyncHandler(async (req, res) => {
+    const userId = req.user!.id;
+    const body = completeModuleSchema.parse(req.body);
+
+    const assigned = await prisma.trainingAssignment.findUnique({
+      where: { moduleId_userId: { moduleId: body.moduleId, userId } },
+      select: { id: true }
+    });
+    if (!assigned) return res.status(403).json({ error: "Forbidden" });
+
+    const completion = await prisma.trainingCompletion.upsert({
+      where: { moduleId_userId: { moduleId: body.moduleId, userId } },
+      create: { moduleId: body.moduleId, userId, status: TrainingCompletionStatus.COMPLETED, completedAt: new Date() },
+      update: { status: TrainingCompletionStatus.COMPLETED, completedAt: new Date() },
+      select: { moduleId: true, userId: true, status: true, completedAt: true, updatedAt: true }
+    });
+
+    await writeAuditEvent({
+      prisma,
+      req,
+      actor: req.user!,
+      action: "training.complete_module",
+      entityType: "TrainingCompletion",
+      entityId: `${completion.moduleId}:${completion.userId}`,
+      metadata: { moduleId: completion.moduleId }
+    });
+
+    res.json({ completion });
+  })
+);
+
+const assignCourseSchema = z.object({
+  facilitatorId: z.string().min(1),
+  courseId: z.string().min(1)
+});
+
+trainingRouter.post(
+  "/assign-course",
+  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const requester = req.user!;
+    const body = assignCourseSchema.parse(req.body);
+    await assertFacilitatorOrgScope(requester, body.facilitatorId);
+
+    const modules = await prisma.trainingModule.findMany({
+      where: { courseId: body.courseId },
+      select: { id: true }
+    });
+    if (!modules.length) return res.status(404).json({ error: "Course has no modules" });
+
+    const created = await prisma.trainingAssignment.createMany({
+      data: modules.map((m) => ({ moduleId: m.id, userId: body.facilitatorId, assignedById: requester.id })),
+      skipDuplicates: true
+    });
+
+    await writeAuditEvent({
+      prisma,
+      req,
+      actor: requester,
+      action: "training.assign_course",
+      entityType: "TrainingCourse",
+      entityId: body.courseId,
+      metadata: { facilitatorId: body.facilitatorId, modulesAssigned: created.count }
+    });
+
+    res.json({ ok: true, assignedModules: created.count });
+  })
+);
+
+trainingRouter.get(
+  "/facilitator/:id/progress",
+  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const requester = req.user!;
+    const facilitatorId = req.params.id;
+    await assertFacilitatorOrgScope(requester, facilitatorId);
+
+    const [assignments, completions, courses] = await Promise.all([
+      prisma.trainingAssignment.findMany({
+        where: { userId: facilitatorId },
+        select: { assignedAt: true, module: { select: { id: true, courseId: true, moduleName: true } } }
+      }),
+      prisma.trainingCompletion.findMany({
+        where: { userId: facilitatorId },
+        select: { moduleId: true, status: true, completedAt: true }
+      }),
+      prisma.trainingCourse.findMany({
+        where: { active: true },
+        select: { id: true, title: true, levelNumber: true }
+      })
+    ]);
+
+    const completionByModule = new Map(completions.map((c) => [c.moduleId, c]));
+    const courseById = new Map(courses.map((c) => [c.id, c]));
+
+    const byCourse = new Map<
+      string,
+      { courseId: string; title: string; levelNumber: number; total: number; completed: number; modules: Array<{ id: string; moduleName: string; status: TrainingCompletionStatus; completedAt: Date | null }> }
+    >();
+
+    for (const a of assignments) {
+      const courseId = a.module.courseId;
+      const courseMeta = courseById.get(courseId);
+      const entry =
+        byCourse.get(courseId) ??
+        {
+          courseId,
+          title: courseMeta?.title ?? courseId,
+          levelNumber: courseMeta?.levelNumber ?? 0,
+          total: 0,
+          completed: 0,
+          modules: [] as any[]
+        };
+      const comp = completionByModule.get(a.module.id);
+      const status = comp?.status ?? TrainingCompletionStatus.NOT_STARTED;
+      entry.total += 1;
+      if (status === TrainingCompletionStatus.COMPLETED) entry.completed += 1;
+      entry.modules.push({ id: a.module.id, moduleName: a.module.moduleName, status, completedAt: comp?.completedAt ?? null });
+      byCourse.set(courseId, entry);
+    }
+
+    const coursesProgress = Array.from(byCourse.values())
+      .map((c) => ({ ...c, modules: c.modules.slice().sort((a, b) => a.moduleName.localeCompare(b.moduleName)) }))
+      .sort((a, b) => a.levelNumber - b.levelNumber);
+
+    res.json({
+      facilitatorId,
+      summary: {
+        assignedModules: assignments.length,
+        completedModules: completions.filter((c) => c.status === TrainingCompletionStatus.COMPLETED).length
+      },
+      courses: coursesProgress
+    });
+  })
+);
+
+trainingRouter.get(
+  "/org-stats",
+  requireRole(Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const requester = req.user!;
+    const orgId =
+      requester.role === Role.ORG_ADMIN
+        ? (await prisma.user.findUnique({ where: { id: requester.id }, select: { organisationId: true } }))?.organisationId
+        : (typeof req.query.organisationId === "string" ? req.query.organisationId : undefined);
+
+    if (!orgId) return res.status(400).json({ error: "organisationId is required" });
+
+    const facilitators = await prisma.user.findMany({
+      where: { organisationId: orgId, role: Role.FACILITATOR },
+      select: { id: true }
+    });
+    const facilitatorIds = facilitators.map((f) => f.id);
+    if (!facilitatorIds.length) return res.json({ organisationId: orgId, courses: [] });
+
+    const [assignments, completions, courses] = await Promise.all([
+      prisma.trainingAssignment.findMany({
+        where: { userId: { in: facilitatorIds } },
+        select: { userId: true, module: { select: { id: true, courseId: true } } }
+      }),
+      prisma.trainingCompletion.findMany({
+        where: { userId: { in: facilitatorIds } },
+        select: { userId: true, moduleId: true, status: true }
+      }),
+      prisma.trainingCourse.findMany({
+        where: { active: true },
+        select: { id: true, title: true, levelNumber: true }
+      })
+    ]);
+
+    const courseById = new Map(courses.map((c) => [c.id, c]));
+    const completionKey = new Set(completions.filter((c) => c.status === TrainingCompletionStatus.COMPLETED).map((c) => `${c.userId}:${c.moduleId}`));
+
+    const byCourse = new Map<string, { courseId: string; title: string; levelNumber: number; assignedModules: number; completedModules: number }>();
+    for (const a of assignments) {
+      const courseId = a.module.courseId;
+      const meta = courseById.get(courseId);
+      const entry =
+        byCourse.get(courseId) ??
+        { courseId, title: meta?.title ?? courseId, levelNumber: meta?.levelNumber ?? 0, assignedModules: 0, completedModules: 0 };
+      entry.assignedModules += 1;
+      if (completionKey.has(`${a.userId}:${a.module.id}`)) entry.completedModules += 1;
+      byCourse.set(courseId, entry);
+    }
+
+    res.json({
+      organisationId: orgId,
+      courses: Array.from(byCourse.values()).sort((a, b) => a.levelNumber - b.levelNumber)
+    });
   })
 );

@@ -1,6 +1,7 @@
 import React from "react";
-import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, View } from "react-native";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { AppText } from "./Text";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "success";
 
@@ -9,13 +10,15 @@ export function AppButton({
   onPress,
   disabled,
   loading,
-  variant = "primary"
+  variant = "primary",
+  icon
 }: {
   title: string;
   onPress: () => void | Promise<void>;
   disabled?: boolean;
   loading?: boolean;
   variant?: Variant;
+  icon?: React.ReactNode;
 }) {
   const { config } = useAccessibility();
   const colors = config.color.colors;
@@ -53,6 +56,8 @@ export function AppButton({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: Boolean(loading) }}
       style={({ pressed }) => [
         {
           backgroundColor,
@@ -61,7 +66,7 @@ export function AppButton({
           minHeight: config.interaction.minTouchSize,
           paddingVertical: 12,
           paddingHorizontal: 14,
-          borderRadius: 14,
+          borderRadius: 16,
           opacity: isDisabled ? 0.55 : pressed ? config.motion.pressFeedbackOpacity : 1,
           ...(shadow as object)
         }
@@ -69,16 +74,14 @@ export function AppButton({
     >
       <View style={{ flexDirection: "row", gap: 10, justifyContent: "center", alignItems: "center" }}>
         {loading ? <ActivityIndicator color={textColor} /> : null}
-        <Text
-          style={{
-            color: textColor,
-            fontSize: Math.round(16 * config.typography.fontScale),
-            fontWeight: "800",
-            letterSpacing: config.typography.letterSpacing
-          }}
+        {!loading && icon ? <View style={{ marginTop: 1 }}>{icon}</View> : null}
+        <AppText
+          variant="body"
+          tone={textColor === "#FFFFFF" ? "white" : textColor === colors.primary ? "primary" : "text"}
+          weight="bold"
         >
           {title}
-        </Text>
+        </AppText>
       </View>
     </Pressable>
   );

@@ -366,6 +366,20 @@ model TrainingModule {
   @@unique([courseId, moduleName])
 }
 
+model TrainingCourse {
+  id            String   @id @default(cuid())
+  title         String
+  levelNumber   Int
+  description   String?
+  learnworldsUrl String
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([levelNumber])
+  @@index([active])
+}
+
 model TrainingAssignment {
   id           String   @id @default(cuid())
   moduleId     String

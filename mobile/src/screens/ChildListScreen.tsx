@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { FlatList, Pressable, View } from "react-native";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 import { api } from "../api/client";
 import { Child } from "../api/types";
@@ -10,6 +10,10 @@ import { MainStackParamList } from "../navigation/MainStack";
 import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Screen } from "../ui/Screen";
+import { AppText } from "../ui/Text";
+import { InlineAlert } from "../ui/InlineAlert";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { EmptyState } from "../ui/EmptyState";
 
 type Props = NativeStackScreenProps<MainStackParamList, "Children">;
 
@@ -24,6 +28,15 @@ export function ChildListScreen({ navigation }: Props) {
   const isTrainer = session?.user.role === "TRAINER_SUPERVISOR";
   const isOrgAdmin = session?.user.role === "ORG_ADMIN";
   const hasSupportModules = !!session && session.user.role !== "PARENT";
+
+  const getTitle = () => {
+    if (session?.user.role === "SUPER_ADMIN") return "Superadmin";
+    if (isAdmin) return "Admin Dashboard";
+    if (isOrgAdmin) return "Organization Dashboard";
+    if (isTrainer) return "Trainer Dashboard";
+    if (isFacilitator) return "My Assignments";
+    return "Children";
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -47,7 +60,7 @@ export function ChildListScreen({ navigation }: Props) {
     <Screen>
       <FlatList
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingVertical: 4, gap: 10 }}
+        contentContainerStyle={{ paddingVertical: 4, gap: 12 }}
         data={children}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
@@ -55,19 +68,7 @@ export function ChildListScreen({ navigation }: Props) {
             <Card style={{ backgroundColor: colors.surfaceAlt }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                 <View style={{ gap: 4, flex: 1 }}>
-                  <Text
-                    style={{
-                      fontSize: 28,
-                      fontWeight: "900",
-                      color: colors.text,
-                      letterSpacing: config.typography.letterSpacing
-                    }}
-                  >
-                    Children
-                  </Text>
-                  <Text style={{ fontSize: 14, color: colors.textMuted }}>
-                    {session?.user.email ?? "Your profiles and assignments"}
-                  </Text>
+                  <ScreenHeader title={getTitle()} subtitle={session?.user.email ?? "Your profiles and assignments"} />
                 </View>
                 <View style={{ width: 120 }}>
                   <AppButton title="Logout" variant="secondary" onPress={logout} />
@@ -100,7 +101,10 @@ export function ChildListScreen({ navigation }: Props) {
                       <AppButton title="My journey" variant="secondary" onPress={() => navigation.navigate("Journey")} />
                     </View>
                     <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton title="Training" variant="secondary" onPress={() => navigation.navigate("TrainingHub")} />
+                      <AppButton title="Training" variant="secondary" onPress={() => navigation.navigate("TrainingCourses")} />
+                    </View>
+                    <View style={{ minWidth: 180, flexGrow: 1 }}>
+                      <AppButton title="Training hub" variant="secondary" onPress={() => navigation.navigate("TrainingHub")} />
                     </View>
                     <View style={{ minWidth: 180, flexGrow: 1 }}>
                       <AppButton
@@ -162,30 +166,32 @@ export function ChildListScreen({ navigation }: Props) {
               </View>
             </Card>
 
-            {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
+            {error ? <InlineAlert tone="danger" text={error} /> : null}
           </View>
         }
         ListEmptyComponent={
-          <Card style={{ backgroundColor: colors.surfaceAlt }}>
-            <Text style={{ color: colors.text, fontWeight: "900" }}>No profiles yet</Text>
-            <Text style={{ color: colors.textMuted, marginTop: 6 }}>
-              {session?.user.role === "PARENT"
+          <EmptyState
+            title="No profiles yet"
+            message={
+              session?.user.role === "PARENT"
                 ? "Create a child profile to get started."
-                : "No child profiles are assigned to this account yet."}
-            </Text>
-          </Card>
+                : "No child profiles are assigned to this account yet."
+            }
+          />
         }
         renderItem={({ item }) => {
           return (
             <Pressable
               onPress={() => navigation.navigate("Child", { childId: item.id })}
-              style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
+              style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
             >
               <Card>
-                <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text }}>{item.name}</Text>
-                <Text style={{ color: colors.textMuted, marginTop: 4 }}>
+                <AppText variant="body" weight="semibold">
+                  {item.name}
+                </AppText>
+                <AppText variant="caption" tone="muted" style={{ marginTop: 4 }}>
                   {new Date(item.dateOfBirth).toDateString()}
-                </Text>
+                </AppText>
               </Card>
             </Pressable>
           );

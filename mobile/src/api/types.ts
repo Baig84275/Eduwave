@@ -193,6 +193,27 @@ export type TrainingModuleItem = {
   completedAt?: string | null;
 };
 
+export type TrainingCourse = {
+  id: string;
+  title: string;
+  levelNumber: number;
+  description?: string | null;
+  learnworldsUrl: string;
+  active: boolean;
+};
+
+export type MyTrainingCourse = {
+  course: TrainingCourse;
+  modules: Array<{
+    id: string;
+    moduleName: string;
+    externalUrl: string;
+    assignedAt: string;
+    completionStatus: TrainingCompletionStatus;
+    completionDate?: string | null;
+  }>;
+};
+
 export type TrainingReflection = {
   id: string;
   facilitatorId?: string;

@@ -1,23 +1,25 @@
-import React from "react";
-import { Platform, StyleProp, Text, TextInput, TextInputProps, View, ViewStyle } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Platform, StyleProp, TextInput, TextInputProps, View, ViewStyle } from "react-native";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { AppText } from "./Text";
 
 export function TextField({
   label,
   error,
+  helperText,
   containerStyle,
   ...inputProps
 }: {
   label: string;
   error?: string | null;
+  helperText?: string | null;
   containerStyle?: StyleProp<ViewStyle>;
 } & TextInputProps) {
   const { config } = useAccessibility();
   const colors = config.color.colors;
-  const borderColor = error ? colors.danger : colors.border;
+  const [focused, setFocused] = useState(false);
+  const borderColor = error ? colors.danger : focused ? colors.focusRing : colors.border;
   const fontSize = Math.round(16 * config.typography.fontScale);
-  const labelSize = Math.round(14 * config.typography.fontScale);
-  const helperSize = Math.round(13 * config.typography.fontScale);
   const paddingVertical = Math.round(12 * Math.min(config.typography.fontScale, 1.2));
   const minHeight = config.interaction.minTouchSize;
   const shadow =
@@ -36,21 +38,27 @@ export function TextField({
           default: {}
         });
 
+  const a11yLabel = useMemo(() => inputProps.accessibilityLabel ?? label, [inputProps.accessibilityLabel, label]);
+  const a11yHint = useMemo(() => inputProps.accessibilityHint ?? inputProps.placeholder, [inputProps.accessibilityHint, inputProps.placeholder]);
+
   return (
     <View style={[{ gap: 8 }, containerStyle]}>
-      <Text
-        style={{
-          color: colors.text,
-          fontSize: labelSize,
-          fontWeight: "700",
-          letterSpacing: config.typography.letterSpacing
-        }}
-      >
+      <AppText variant="label" weight="semibold">
         {label}
-      </Text>
+      </AppText>
       <TextInput
         placeholderTextColor={colors.textMuted}
         {...inputProps}
+        accessibilityLabel={a11yLabel}
+        accessibilityHint={a11yHint}
+        onFocus={(e) => {
+          setFocused(true);
+          inputProps.onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          inputProps.onBlur?.(e);
+        }}
         style={[
           {
             borderWidth: 1,
@@ -59,7 +67,7 @@ export function TextField({
             minHeight,
             paddingVertical,
             paddingHorizontal: 12,
-            borderRadius: 12,
+            borderRadius: 14,
             color: colors.text,
             fontSize,
             letterSpacing: config.typography.letterSpacing,
@@ -68,11 +76,8 @@ export function TextField({
           inputProps.style
         ]}
       />
-      {error ? (
-        <Text style={{ color: colors.danger, fontSize: helperSize, letterSpacing: config.typography.letterSpacing }}>
-          {error}
-        </Text>
-      ) : null}
+      {error ? <AppText variant="caption" tone="danger" weight="semibold">{error}</AppText> : null}
+      {!error && helperText ? <AppText variant="caption" tone="muted">{helperText}</AppText> : null}
     </View>
   );
 }

@@ -11,6 +11,9 @@ import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
 import { TextField } from "../ui/TextField";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
+import { AppText } from "../ui/Text";
 
 type Props = NativeStackScreenProps<MainStackParamList, "Invitations">;
 
@@ -65,18 +68,22 @@ export function InvitationsScreen({ navigation }: Props) {
   return (
     <ScrollScreen>
       <View style={{ gap: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>Invitations</Text>
-        <Text style={{ color: colors.textMuted }}>
-          Build a support team by invitation. This feature has no chat and no threaded messaging.
-        </Text>
+        <ScreenHeader
+          title="Invitations"
+          subtitle="Build a support team by invitation. This feature has no chat and no threaded messaging."
+        />
 
-        {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
-        {success ? <Text style={{ color: colors.primary, fontSize: 13 }}>{success}</Text> : null}
+        {error ? <InlineAlert tone="danger" text={error} /> : null}
+        {success ? <InlineAlert tone="success" text={success} /> : null}
 
         {isParent ? (
           <Card>
-            <Text style={{ color: colors.text, fontWeight: "900" }}>Invite a professional</Text>
-            <Text style={{ color: colors.textMuted, marginTop: 6 }}>Enter an email and choose a role.</Text>
+            <AppText variant="body" weight="black">
+              Invite a professional
+            </AppText>
+            <AppText variant="caption" tone="muted" style={{ marginTop: 6 }}>
+              Enter an email and choose a role.
+            </AppText>
 
             <View style={{ gap: 10, marginTop: 12 }}>
               <TextField label="Email" value={inviteeEmail} onChangeText={setInviteeEmail} autoCapitalize="none" placeholder="name@example.com" />
@@ -147,13 +154,15 @@ export function InvitationsScreen({ navigation }: Props) {
           </Card>
         ) : (
           <Card style={{ backgroundColor: colors.surfaceAlt }}>
-            <Text style={{ color: colors.text, fontWeight: "900" }}>Pending invitations</Text>
-            <Text style={{ color: colors.textMuted, marginTop: 6 }}>
+            <AppText variant="body" weight="black">
+              Pending invitations
+            </AppText>
+            <AppText variant="caption" tone="muted" style={{ marginTop: 6 }}>
               You can accept or reject. There are no replies or chat threads.
-            </Text>
-            <Text style={{ color: colors.text, fontWeight: "900", marginTop: 10 }}>
-              {loading ? "…" : pendingReceived.length}
-            </Text>
+            </AppText>
+            <AppText variant="title" weight="black" style={{ marginTop: 10 }}>
+              {loading ? "…" : String(pendingReceived.length)}
+            </AppText>
           </Card>
         )}
 
@@ -258,4 +267,3 @@ export function InvitationsScreen({ navigation }: Props) {
     </ScrollScreen>
   );
 }
-

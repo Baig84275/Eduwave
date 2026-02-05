@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { api } from "../api/client";
 import { CheckInFrequency, SettingContext, SupportNeeded } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -10,6 +10,9 @@ import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
 import { TextField } from "../ui/TextField";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
+import { AppText } from "../ui/Text";
 
 type Props = NativeStackScreenProps<MainStackParamList, "CheckIn">;
 
@@ -26,7 +29,9 @@ function RatingRow({
   const colors = config.color.colors;
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ color: colors.text, fontWeight: "900" }}>{label}</Text>
+      <AppText variant="label" weight="black">
+        {label}
+      </AppText>
       <View style={{ flexDirection: "row", gap: 10 }}>
         {[1, 2, 3, 4, 5].map((n) => {
           const selected = value === n;
@@ -37,7 +42,9 @@ function RatingRow({
               style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
             >
               <Card style={{ borderColor: selected ? colors.focusRing : colors.border, borderWidth: selected ? 2 : 1 }}>
-                <Text style={{ color: colors.text, fontWeight: "900" }}>{n}</Text>
+                <AppText variant="label" weight="black">
+                  {String(n)}
+                </AppText>
               </Card>
             </Pressable>
           );
@@ -66,11 +73,12 @@ export function CheckInScreen({ navigation }: Props) {
   return (
     <ScrollScreen>
       <View style={{ gap: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>Facilitator Check-In</Text>
-        <Text style={{ color: colors.textMuted }}>Quick check-in under 2 minutes. Submissions cannot be edited.</Text>
+        <ScreenHeader title="Check-in" subtitle="Quick check-in under 2 minutes. Submissions cannot be edited." />
 
         <View style={{ gap: 8 }}>
-          <Text style={{ color: colors.text, fontWeight: "900" }}>Frequency</Text>
+          <AppText variant="label" weight="black">
+            Frequency
+          </AppText>
           <View style={{ flexDirection: "row", gap: 10 }}>
             {(
               [
@@ -86,7 +94,9 @@ export function CheckInScreen({ navigation }: Props) {
                   style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
                 >
                   <Card style={{ borderColor: selected ? colors.focusRing : colors.border, borderWidth: selected ? 2 : 1 }}>
-                    <Text style={{ color: colors.text, fontWeight: "900" }}>{f.label}</Text>
+                    <AppText variant="label" weight="black">
+                      {f.label}
+                    </AppText>
                   </Card>
                 </Pressable>
               );
@@ -98,7 +108,9 @@ export function CheckInScreen({ navigation }: Props) {
         <RatingRow label="Emotional load (1–5)" value={emotionalLoad} onChange={setEmotionalLoad} />
 
         <View style={{ gap: 8 }}>
-          <Text style={{ color: colors.text, fontWeight: "900" }}>Support needed</Text>
+          <AppText variant="label" weight="black">
+            Support needed
+          </AppText>
           <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
             {(
               [
@@ -115,7 +127,9 @@ export function CheckInScreen({ navigation }: Props) {
                   style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
                 >
                   <Card style={{ borderColor: selected ? colors.focusRing : colors.border, borderWidth: selected ? 2 : 1 }}>
-                    <Text style={{ color: colors.text, fontWeight: "900" }}>{s.label}</Text>
+                    <AppText variant="label" weight="black">
+                      {s.label}
+                    </AppText>
                   </Card>
                 </Pressable>
               );
@@ -124,7 +138,9 @@ export function CheckInScreen({ navigation }: Props) {
         </View>
 
         <View style={{ gap: 8 }}>
-          <Text style={{ color: colors.text, fontWeight: "900" }}>Where were you working?</Text>
+          <AppText variant="label" weight="black">
+            Where were you working?
+          </AppText>
           <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
             {(
               [
@@ -143,7 +159,9 @@ export function CheckInScreen({ navigation }: Props) {
                   style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
                 >
                   <Card style={{ borderColor: selected ? colors.focusRing : colors.border, borderWidth: selected ? 2 : 1 }}>
-                    <Text style={{ color: colors.text, fontWeight: "900" }}>{opt.label}</Text>
+                    <AppText variant="label" weight="black">
+                      {opt.label}
+                    </AppText>
                   </Card>
                 </Pressable>
               );
@@ -167,8 +185,8 @@ export function CheckInScreen({ navigation }: Props) {
           style={{ minHeight: 110, textAlignVertical: "top" }}
         />
 
-        {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
-        {success ? <Text style={{ color: colors.primary, fontSize: 13 }}>{success}</Text> : null}
+        {error ? <InlineAlert tone="danger" text={error} /> : null}
+        {success ? <InlineAlert tone="success" text={success} /> : null}
 
         <AppButton
           title={saving ? "Submitting..." : "Submit check-in"}

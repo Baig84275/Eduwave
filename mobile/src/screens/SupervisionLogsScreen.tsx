@@ -11,6 +11,9 @@ import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
 import { TextField } from "../ui/TextField";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
+import { AppText } from "../ui/Text";
 
 type Props = NativeStackScreenProps<MainStackParamList, "SupervisionLogs">;
 
@@ -92,8 +95,7 @@ export function SupervisionLogsScreen({ navigation }: Props) {
   return (
     <ScrollScreen>
       <View style={{ gap: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>Supervision Logs</Text>
-        <Text style={{ color: colors.textMuted }}>One-way feedback. No threads, chat, or public visibility.</Text>
+        <ScreenHeader title="Supervision logs" subtitle="One-way feedback. No threads, chat, or public visibility." />
 
         {!isFacilitator ? (
           <View style={{ gap: 10 }}>
@@ -152,35 +154,43 @@ export function SupervisionLogsScreen({ navigation }: Props) {
           ) : null}
         </View>
 
-        {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
+        {error ? <InlineAlert tone="danger" text={error} /> : null}
 
         {logs.map((log) => {
           return (
             <Card key={log.id}>
-              <Text style={{ color: colors.text, fontWeight: "900" }}>
+              <AppText variant="body" weight="black">
                 Observation: {new Date(log.observationDate).toDateString()}
-              </Text>
-              <Text style={{ color: colors.textMuted, marginTop: 4 }}>
+              </AppText>
+              <AppText variant="caption" tone="muted" style={{ marginTop: 4 }}>
                 Follow-up required: {log.followUpRequired ? "Yes" : "No"}
                 {log.followUpDate ? ` · Follow-up date: ${new Date(log.followUpDate).toLocaleDateString()}` : ""}
                 {log.followUpRequired ? ` · Follow-up completed: ${log.followUpCompleted ? "Yes" : "No"}` : ""}
                 {" · "}Acknowledged: {log.acknowledgedAt ? "Yes" : "No"}
-              </Text>
-              {log.strengths ? <Text style={{ color: colors.text, marginTop: 10 }}>Strengths: {log.strengths}</Text> : null}
+              </AppText>
+              {log.strengths ? (
+                <AppText variant="body" style={{ marginTop: 10 }}>
+                  Strengths: {log.strengths}
+                </AppText>
+              ) : null}
               {log.challenges ? (
-                <Text style={{ color: colors.text, marginTop: 10 }}>Challenges: {log.challenges}</Text>
+                <AppText variant="body" style={{ marginTop: 10 }}>
+                  Challenges: {log.challenges}
+                </AppText>
               ) : null}
               {log.strategies ? (
-                <Text style={{ color: colors.text, marginTop: 10 }}>Strategies: {log.strategies}</Text>
+                <AppText variant="body" style={{ marginTop: 10 }}>
+                  Strategies: {log.strategies}
+                </AppText>
               ) : null}
 
               {log.followUpCompleted ? (
                 <View style={{ gap: 8, marginTop: 12 }}>
                   {log.facilitatorResponse ? (
-                    <Text style={{ color: colors.text }}>Facilitator response: {log.facilitatorResponse}</Text>
+                    <AppText variant="body">Facilitator response: {log.facilitatorResponse}</AppText>
                   ) : null}
-                  {log.actionsTaken ? <Text style={{ color: colors.text }}>Actions taken: {log.actionsTaken}</Text> : null}
-                  {log.outcomeNotes ? <Text style={{ color: colors.text }}>Outcome: {log.outcomeNotes}</Text> : null}
+                  {log.actionsTaken ? <AppText variant="body">Actions taken: {log.actionsTaken}</AppText> : null}
+                  {log.outcomeNotes ? <AppText variant="body">Outcome: {log.outcomeNotes}</AppText> : null}
                 </View>
               ) : null}
 
@@ -190,7 +200,9 @@ export function SupervisionLogsScreen({ navigation }: Props) {
                   style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1, marginTop: 12 }]}
                 >
                   <Card style={{ backgroundColor: colors.primary }}>
-                    <Text style={{ color: "white", fontWeight: "900" }}>Acknowledge</Text>
+                    <AppText variant="label" tone="white" weight="bold">
+                      Acknowledge
+                    </AppText>
                   </Card>
                 </Pressable>
               ) : null}

@@ -24,6 +24,8 @@ import { ResourcesMapScreen } from "../screens/ResourcesMapScreen";
 import { TrainingReflectionFormScreen } from "../screens/TrainingReflectionFormScreen";
 import { TrainingReflectionsScreen } from "../screens/TrainingReflectionsScreen";
 import { SupervisionFollowUpScreen } from "../screens/SupervisionFollowUpScreen";
+import { TrainingCoursesScreen } from "../screens/TrainingCoursesScreen";
+import { AssignTrainingScreen } from "../screens/AssignTrainingScreen";
 
 export type MainStackParamList = {
   Children: undefined;
@@ -35,11 +37,13 @@ export type MainStackParamList = {
   Accessibility: undefined;
   Admin: undefined;
   AssignFacilitator: { childId: string };
+  AssignTraining: undefined;
   Resources: undefined;
   ResourcesMap: undefined;
   CheckIn: undefined;
   Journey: undefined;
   TrainingHub: undefined;
+  TrainingCourses: undefined;
   TrainingReflections: undefined;
   TrainingReflection: { moduleId: string; courseId: string; moduleName: string };
   SupervisionLogs: undefined;
@@ -65,7 +69,7 @@ export function MainStack() {
         headerTitleStyle: { color: colors.text }
       }}
     >
-      <Stack.Screen name="Children" component={ChildListScreen} />
+      <Stack.Screen name="Children" component={ChildListScreen} options={{ headerShown: false }} />
       <Stack.Screen name="CreateChild" component={CreateChildScreen} options={{ title: "Create Child" }} />
       <Stack.Screen name="Child" component={ChildDetailScreen} options={{ title: "Child Profile" }} />
       <Stack.Screen name="AddUpdate" component={AddUpdateScreen} options={{ title: "Add Update" }} />
@@ -79,6 +83,8 @@ export function MainStack() {
       <Stack.Screen name="CheckIn" component={CheckInScreen} options={{ title: "Check-In" }} />
       <Stack.Screen name="Journey" component={FacilitatorJourneyScreen} options={{ title: "My Journey" }} />
       <Stack.Screen name="TrainingHub" component={TrainingHubScreen} options={{ title: "Training" }} />
+      <Stack.Screen name="TrainingCourses" component={TrainingCoursesScreen} options={{ title: "Training" }} />
+      <Stack.Screen name="AssignTraining" component={AssignTrainingScreen} options={{ title: "Assign Training" }} />
       <Stack.Screen name="TrainingReflections" component={TrainingReflectionsScreen} options={{ title: "Training Journey" }} />
       <Stack.Screen name="TrainingReflection" component={TrainingReflectionFormScreen} options={{ title: "Add Reflection" }} />
       <Stack.Screen name="SupervisionLogs" component={SupervisionLogsScreen} options={{ title: "Supervision Logs" }} />

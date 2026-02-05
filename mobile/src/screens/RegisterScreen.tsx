@@ -1,19 +1,19 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useState } from "react";
-import { Text, View } from "react-native";
-import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { View } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { AuthStackParamList } from "../navigation/AuthStack";
 import { AppButton } from "../ui/Button";
 import { Screen } from "../ui/Screen";
 import { TextField } from "../ui/TextField";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
+import { AppText } from "../ui/Text";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
 
 export function RegisterScreen({ navigation, route }: Props) {
   const { register } = useAuth();
-  const { config } = useAccessibility();
-  const colors = config.color.colors;
   const invitationToken = route.params?.invitationToken;
   const [email, setEmail] = useState(route.params?.prefillEmail ?? "");
   const [password, setPassword] = useState("");
@@ -23,10 +23,7 @@ export function RegisterScreen({ navigation, route }: Props) {
 
   return (
     <Screen>
-      <Text style={{ fontSize: 28, fontWeight: "900", color: colors.text, letterSpacing: config.typography.letterSpacing }}>
-        Create account
-      </Text>
-      <Text style={{ fontSize: 15, color: colors.textMuted, marginTop: -6 }}>Choose a role and sign up</Text>
+      <ScreenHeader title="Create account" subtitle="Choose a role and sign up" />
 
       <View style={{ gap: 10 }}>
         <View style={{ flexDirection: "row", gap: 10 }}>
@@ -71,10 +68,12 @@ export function RegisterScreen({ navigation, route }: Props) {
           onChangeText={setPassword}
           placeholder="Minimum 8 characters"
         />
-        <Text style={{ color: colors.textMuted, fontSize: 13 }}>Minimum 8 characters</Text>
+        <AppText variant="caption" tone="muted">
+          Minimum 8 characters
+        </AppText>
       </View>
 
-      {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
+      {error ? <InlineAlert tone="danger" text={error} /> : null}
       <AppButton
         title={loading ? "Creating..." : "Create account"}
         loading={loading}

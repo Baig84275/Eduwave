@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Image, Pressable, Text, View } from "react-native";
+import { Alert, FlatList, Image, Pressable, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "../api/client";
@@ -15,6 +15,11 @@ import { Screen } from "../ui/Screen";
 import { TextField } from "../ui/TextField";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 import { getApiBaseUrl } from "../api/baseUrl";
+import { AppText } from "../ui/Text";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { InlineAlert } from "../ui/InlineAlert";
+import { EmptyState } from "../ui/EmptyState";
+import { AppButton } from "../ui/Button";
 
 type Props = NativeStackScreenProps<MainStackParamList, "Resources">;
 
@@ -95,10 +100,10 @@ export function ResourceDirectoryScreen({ navigation }: Props) {
         contentContainerStyle={{ gap: 10, paddingBottom: 12 }}
         ListHeaderComponent={
           <View style={{ gap: 10 }}>
-            <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>South Africa Resources</Text>
-            <Text style={{ color: colors.textMuted }}>
-              Search a structured directory of support resources. No bookings, payments, or reviews.
-            </Text>
+            <ScreenHeader
+              title="Resources"
+              subtitle="Search a structured directory of support resources. No bookings, payments, or reviews."
+            />
 
             <TextField label="Search" value={q} onChangeText={setQ} placeholder="Name, city, description" />
             <View style={{ flexDirection: "row", gap: 10 }}>
@@ -111,14 +116,18 @@ export function ResourceDirectoryScreen({ navigation }: Props) {
             </View>
 
             <View style={{ gap: 8 }}>
-              <Text style={{ fontWeight: "800", color: colors.text }}>Category</Text>
+              <AppText variant="label" weight="semibold">
+                Category
+              </AppText>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
                 <Pressable
                   onPress={() => setCategory("")}
                   style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
                 >
                   <Card style={{ borderColor: !category ? colors.focusRing : colors.border, borderWidth: !category ? 2 : 1 }}>
-                    <Text style={{ color: colors.text, fontWeight: "800" }}>All</Text>
+                    <AppText variant="label" weight="bold">
+                      All
+                    </AppText>
                   </Card>
                 </Pressable>
                 {categories.map((c) => {
@@ -130,7 +139,9 @@ export function ResourceDirectoryScreen({ navigation }: Props) {
                       style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
                     >
                       <Card style={{ borderColor: selected ? colors.focusRing : colors.border, borderWidth: selected ? 2 : 1 }}>
-                        <Text style={{ color: colors.text, fontWeight: "800" }}>{c.label}</Text>
+                        <AppText variant="label" weight="bold">
+                          {c.label}
+                        </AppText>
                       </Card>
                     </Pressable>
                   );
@@ -138,17 +149,11 @@ export function ResourceDirectoryScreen({ navigation }: Props) {
               </View>
             </View>
 
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <Pressable
-                onPress={load}
-                disabled={loading}
-                style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
-              >
-                <Card style={{ backgroundColor: colors.primary }}>
-                  <Text style={{ color: "white", fontWeight: "900" }}>{loading ? "Loading..." : "Apply filters"}</Text>
-                </Card>
-              </Pressable>
-              <Pressable
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <AppButton title={loading ? "Loading..." : "Apply filters"} loading={loading} onPress={load} />
+              <AppButton
+                title={nearMe ? "Near me: On" : "Near me"}
+                variant="secondary"
                 onPress={async () => {
                   setError(null);
                   if (!nearMe) {
@@ -160,33 +165,18 @@ export function ResourceDirectoryScreen({ navigation }: Props) {
                     void load();
                   }, 0);
                 }}
-                style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
-              >
-                <Card style={{ backgroundColor: nearMe ? colors.primaryDark : colors.surfaceAlt }}>
-                  <Text style={{ color: nearMe ? "white" : colors.text, fontWeight: "900" }}>{nearMe ? "Near me: On" : "Near me"}</Text>
-                </Card>
-              </Pressable>
-              <Pressable
-                onPress={() => navigation.navigate("ResourcesMap")}
-                style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
-              >
-                <Card style={{ backgroundColor: colors.surfaceAlt }}>
-                  <Text style={{ color: colors.text, fontWeight: "900" }}>Map view</Text>
-                </Card>
-              </Pressable>
-              <Text style={{ color: colors.textMuted }}>{resources.length} results</Text>
+              />
+              <AppButton title="Map view" variant="secondary" onPress={() => navigation.navigate("ResourcesMap")} />
+              <AppText variant="caption" tone="muted">
+                {resources.length} results
+              </AppText>
             </View>
 
-            {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
+            {error ? <InlineAlert tone="danger" text={error} /> : null}
           </View>
         }
         ListEmptyComponent={
-          <Card style={{ backgroundColor: colors.surfaceAlt }}>
-            <Text style={{ color: colors.text, fontWeight: "900" }}>No results</Text>
-            <Text style={{ color: colors.textMuted, marginTop: 6 }}>
-              Try changing filters, or clear the search and tags.
-            </Text>
-          </Card>
+          <EmptyState title="No results" message="Try changing filters, or clear the search and tags." />
         }
         renderItem={({ item }) => {
           return (
@@ -216,29 +206,51 @@ export function ResourceDirectoryScreen({ navigation }: Props) {
                     size={44}
                     color={colorForCategory(item.category)}
                   />
-                  <Text style={{ marginTop: 8, color: colors.textMuted, fontWeight: "800" }}>{labelForCategory(item.category)}</Text>
+                  <AppText variant="label" tone="muted" weight="bold" style={{ marginTop: 8 }}>
+                    {labelForCategory(item.category)}
+                  </AppText>
                 </View>
               )}
 
-              <Text style={{ color: colors.text, fontWeight: "900", fontSize: 16 }}>{item.name}</Text>
-              <Text style={{ color: colors.textMuted, marginTop: 4 }}>
+              <AppText variant="body" weight="black">
+                {item.name}
+              </AppText>
+              <AppText variant="caption" tone="muted" style={{ marginTop: 4 }}>
                 {item.city}, {item.province} · {item.category}
-              </Text>
-              {item.address ? <Text style={{ color: colors.textMuted, marginTop: 4 }}>{item.address}</Text> : null}
-              {typeof item.distanceKm === "number" ? (
-                <Text style={{ color: colors.textMuted, marginTop: 4 }}>Distance: {item.distanceKm.toFixed(1)} km</Text>
+              </AppText>
+              {item.address ? (
+                <AppText variant="caption" tone="muted" style={{ marginTop: 4 }}>
+                  {item.address}
+                </AppText>
               ) : null}
-              {item.description ? <Text style={{ color: colors.text, marginTop: 8 }}>{item.description}</Text> : null}
+              {typeof item.distanceKm === "number" ? (
+                <AppText variant="caption" tone="muted" style={{ marginTop: 4 }}>
+                  Distance: {item.distanceKm.toFixed(1)} km
+                </AppText>
+              ) : null}
+              {item.description ? (
+                <AppText variant="body" style={{ marginTop: 8 }}>
+                  {item.description}
+                </AppText>
+              ) : null}
               {item.contactInfo ? (
-                <Text style={{ color: colors.textMuted, marginTop: 8 }}>Contact: {item.contactInfo}</Text>
+                <AppText variant="caption" tone="muted" style={{ marginTop: 8 }}>
+                  Contact: {item.contactInfo}
+                </AppText>
               ) : null}
               {item.tags?.length ? (
-                <Text style={{ color: colors.textMuted, marginTop: 8 }}>Tags: {item.tags.join(", ")}</Text>
+                <AppText variant="caption" tone="muted" style={{ marginTop: 8 }}>
+                  Tags: {item.tags.join(", ")}
+                </AppText>
               ) : null}
 
               {canUpload ? (
                 <View style={{ flexDirection: "row", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-                  <Pressable
+                  <AppButton
+                    title={uploadingId === item.id ? "Uploading..." : "Upload image"}
+                    variant="secondary"
+                    disabled={uploadingId === item.id}
+                    loading={uploadingId === item.id}
                     onPress={async () => {
                       if (!session) return;
                       setUploadingId(item.id);
@@ -262,15 +274,7 @@ export function ResourceDirectoryScreen({ navigation }: Props) {
                         setUploadingId(null);
                       }
                     }}
-                    disabled={uploadingId === item.id}
-                    style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
-                  >
-                    <Card style={{ backgroundColor: colors.surfaceAlt }}>
-                      <Text style={{ color: colors.text, fontWeight: "900" }}>
-                        {uploadingId === item.id ? "Uploading..." : "Upload image"}
-                      </Text>
-                    </Card>
-                  </Pressable>
+                  />
                 </View>
               ) : null}
             </Card>
