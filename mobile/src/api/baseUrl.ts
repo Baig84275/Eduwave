@@ -16,6 +16,10 @@ function getDevHost(): string | null {
 }
 
 export function getApiBaseUrl(): string {
+  // HARDCODED FOR CLIENT DEMO via ngrok
+  return "https://bb519e347451.ngrok-free.app";
+  
+  /* Original logic preserved below:
   const envValue = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
   if (envValue) return normalizeBaseUrl(envValue);
 
@@ -27,5 +31,6 @@ export function getApiBaseUrl(): string {
   }
 
   return "http://localhost:4010";
+  */
 }
 

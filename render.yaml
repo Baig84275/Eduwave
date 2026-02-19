@@ -2,9 +2,9 @@ services:
   - type: web
     name: eduwave-backend
     runtime: node
-    rootDir: backend
-    buildCommand: npm install && npm run build
-    startCommand: npm run prisma:deploy && npm run start
+    rootDir: .
+    buildCommand: npm ci --include=dev && npm --workspace backend run build
+    startCommand: npm --workspace backend run prisma:deploy && npm --workspace backend run start
     envVars:
       - key: PORT
         value: 10000
@@ -12,6 +12,8 @@ services:
         fromDatabase:
           name: eduwave-db
           property: connectionString
+      - key: NODE_VERSION
+        value: 20.18.0
       - key: JWT_SECRET
         generateValue: true
       - key: ENCRYPTION_KEY_BASE64
