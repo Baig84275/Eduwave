@@ -11,6 +11,7 @@ async function request<T>(
   const res = await fetch(url, {
     method,
     headers: {
+      "ngrok-skip-browser-warning": "true",
       ...(method === "DELETE" && !body ? {} : { "content-type": "application/json" }),
       ...(session ? { authorization: `Bearer ${session.accessToken}` } : {})
     },
