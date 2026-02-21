@@ -7,12 +7,17 @@
     "platforms": ["ios", "android"],
     "scheme": "eduwave",
     "ios": {
+      "bundleIdentifier": "com.eduwave.village",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "EduWave Village uses your location to find nearby support resources."
       }
     },
     "android": {
+      "package": "com.eduwave.village",
       "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

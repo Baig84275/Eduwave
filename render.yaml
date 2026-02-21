@@ -4,14 +4,14 @@ services:
     runtime: node
     rootDir: .
     buildCommand: npm ci --include=dev && npm --workspace backend run build
-    startCommand: npm --workspace backend run prisma:deploy && npm --workspace backend run start
+    startCommand: bash -lc "npm --workspace backend run prisma:deploy || (echo 'Database not ready yet, retrying in 15s...' && sleep 15 && npm --workspace backend run prisma:deploy) && npm --workspace backend run start"
     envVars:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
         fromDatabase:
           name: eduwave-db
-          property: connectionString
+          property: internalConnectionString
       - key: NODE_VERSION
         value: 20.18.0
       - key: JWT_SECRET
