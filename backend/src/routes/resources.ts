@@ -15,6 +15,8 @@ resourcesRouter.use(requireAuth);
 const listQuerySchema = z.object({
   q: z.string().min(1).optional(),
   province: z.string().min(1).optional(),
+  city: z.string().min(1).optional(),
+  town: z.string().min(1).optional(),
   category: z.nativeEnum(ResourceCategory).optional(),
   tags: z.string().min(1).optional()
 });
@@ -23,6 +25,9 @@ const nearQuerySchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),
   radiusKm: z.coerce.number().positive().max(200).default(50),
+  province: z.string().min(1).optional(),
+  city: z.string().min(1).optional(),
+  town: z.string().min(1).optional(),
   category: z.nativeEnum(ResourceCategory).optional()
 });
 
@@ -48,6 +53,9 @@ const nearbyQuerySchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),
   radius: z.coerce.number().positive().max(200).default(50),
+  province: z.string().min(1).optional(),
+  city: z.string().min(1).optional(),
+  town: z.string().min(1).optional(),
   category: z.nativeEnum(ResourceCategory).optional()
 });
 
@@ -63,6 +71,9 @@ resourcesRouter.get(
     const candidates = await prisma.resource.findMany({
       where: {
         ...(query.category ? { category: query.category } : {}),
+        ...(query.province ? { province: { equals: query.province, mode: "insensitive" } } : {}),
+        ...(query.city ? { city: { equals: query.city, mode: "insensitive" } } : {}),
+        ...(query.town ? { town: { equals: query.town, mode: "insensitive" } } : {}),
         latitude: { not: null, gte: query.lat - latDelta, lte: query.lat + latDelta },
         longitude: { not: null, gte: query.lng - lngDelta, lte: query.lng + lngDelta }
       },
@@ -72,6 +83,7 @@ resourcesRouter.get(
         category: true,
         province: true,
         city: true,
+        town: true,
         address: true,
         latitude: true,
         longitude: true,
@@ -110,6 +122,9 @@ resourcesRouter.get(
     const candidates = await prisma.resource.findMany({
       where: {
         ...(query.category ? { category: query.category } : {}),
+        ...(query.province ? { province: { equals: query.province, mode: "insensitive" } } : {}),
+        ...(query.city ? { city: { equals: query.city, mode: "insensitive" } } : {}),
+        ...(query.town ? { town: { equals: query.town, mode: "insensitive" } } : {}),
         latitude: { not: null, gte: query.lat - latDelta, lte: query.lat + latDelta },
         longitude: { not: null, gte: query.lng - lngDelta, lte: query.lng + lngDelta }
       },
@@ -119,6 +134,7 @@ resourcesRouter.get(
         category: true,
         province: true,
         city: true,
+        town: true,
         address: true,
         latitude: true,
         longitude: true,
@@ -160,6 +176,8 @@ resourcesRouter.get(
     const resources = await prisma.resource.findMany({
       where: {
         ...(query.province ? { province: { equals: query.province, mode: "insensitive" } } : {}),
+        ...(query.city ? { city: { equals: query.city, mode: "insensitive" } } : {}),
+        ...(query.town ? { town: { equals: query.town, mode: "insensitive" } } : {}),
         ...(query.category ? { category: query.category } : {}),
         ...(tags.length ? { tags: { hasEvery: tags } } : {}),
         ...(query.q
@@ -167,6 +185,7 @@ resourcesRouter.get(
               OR: [
                 { name: { contains: query.q, mode: "insensitive" } },
                 { city: { contains: query.q, mode: "insensitive" } },
+                { town: { contains: query.q, mode: "insensitive" } },
                 { description: { contains: query.q, mode: "insensitive" } }
               ]
             }
@@ -179,6 +198,7 @@ resourcesRouter.get(
         category: true,
         province: true,
         city: true,
+        town: true,
         address: true,
         latitude: true,
         longitude: true,
@@ -200,6 +220,32 @@ resourcesRouter.get(
         logoUrl: toSignedAssetUrl(r.logoUrl ?? null, user)
       }))
     });
+  })
+);
+
+const townsQuerySchema = z.object({
+  province: z.string().min(1).optional(),
+  city: z.string().min(1).optional(),
+  q: z.string().min(1).optional()
+});
+
+resourcesRouter.get(
+  "/towns",
+  requireRole(Role.FACILITATOR, Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const query = townsQuerySchema.parse(req.query);
+    const rows = await prisma.resource.findMany({
+      where: {
+        town: { not: null },
+        ...(query.province ? { province: { equals: query.province, mode: "insensitive" } } : {}),
+        ...(query.city ? { city: { equals: query.city, mode: "insensitive" } } : {}),
+        ...(query.q ? { town: { contains: query.q, mode: "insensitive" } } : {})
+      },
+      distinct: ["town"],
+      select: { town: true },
+      orderBy: { town: "asc" }
+    });
+    res.json({ towns: rows.map((r) => r.town).filter((t): t is string => typeof t === "string" && t.length > 0) });
   })
 );
 
@@ -245,6 +291,7 @@ resourcesRouter.get(
         category: true,
         province: true,
         city: true,
+        town: true,
         address: true,
         latitude: true,
         longitude: true,
@@ -274,6 +321,7 @@ const upsertResourceSchema = z.object({
   category: z.nativeEnum(ResourceCategory),
   province: z.string().min(1),
   city: z.string().min(1),
+  town: z.string().min(1).optional().nullable(),
   address: z.string().min(1).optional().nullable(),
   latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
   longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
@@ -300,6 +348,7 @@ resourcesRouter.post(
         category: body.category,
         province: body.province,
         city: body.city,
+        town: body.town ?? null,
         address: body.address ?? null,
         latitude: body.latitude ?? null,
         longitude: body.longitude ?? null,
@@ -317,6 +366,7 @@ resourcesRouter.post(
         category: true,
         province: true,
         city: true,
+        town: true,
         address: true,
         latitude: true,
         longitude: true,
@@ -337,7 +387,7 @@ resourcesRouter.post(
       action: "resource.create",
       entityType: "Resource",
       entityId: resource.id,
-      metadata: { category: resource.category, province: resource.province, city: resource.city }
+      metadata: { category: resource.category, province: resource.province, city: resource.city, town: resource.town ?? null }
     });
     res.json({ resource: { ...resource, imageUrl: toSignedAssetUrl(resource.imageUrl ?? null, user), logoUrl: toSignedAssetUrl(resource.logoUrl ?? null, user) } });
   })
@@ -357,6 +407,7 @@ resourcesRouter.put(
         category: body.category,
         province: body.province,
         city: body.city,
+        town: body.town ?? null,
         address: body.address ?? null,
         latitude: body.latitude ?? null,
         longitude: body.longitude ?? null,
@@ -373,6 +424,7 @@ resourcesRouter.put(
         category: true,
         province: true,
         city: true,
+        town: true,
         address: true,
         latitude: true,
         longitude: true,
@@ -393,7 +445,7 @@ resourcesRouter.put(
       action: "resource.update",
       entityType: "Resource",
       entityId: resource.id,
-      metadata: { category: resource.category, province: resource.province, city: resource.city }
+      metadata: { category: resource.category, province: resource.province, city: resource.city, town: resource.town ?? null }
     });
     res.json({ resource: { ...resource, imageUrl: toSignedAssetUrl(resource.imageUrl ?? null, user), logoUrl: toSignedAssetUrl(resource.logoUrl ?? null, user) } });
   })
@@ -431,6 +483,7 @@ resourcesRouter.patch(
         ...(body.category !== undefined ? { category: body.category } : {}),
         ...(body.province !== undefined ? { province: body.province } : {}),
         ...(body.city !== undefined ? { city: body.city } : {}),
+        ...(body.town !== undefined ? { town: body.town ?? null } : {}),
         ...(body.address !== undefined ? { address: body.address ?? null } : {}),
         ...(body.latitude !== undefined ? { latitude: body.latitude ?? null } : {}),
         ...(body.longitude !== undefined ? { longitude: body.longitude ?? null } : {}),
@@ -447,6 +500,7 @@ resourcesRouter.patch(
         category: true,
         province: true,
         city: true,
+        town: true,
         address: true,
         latitude: true,
         longitude: true,

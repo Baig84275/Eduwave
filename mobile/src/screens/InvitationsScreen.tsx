@@ -1,7 +1,8 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { ProfessionalInvitation } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -10,15 +11,33 @@ import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
 import { TextField } from "../ui/TextField";
-import { useAccessibility } from "../accessibility/AccessibilityProvider";
 import { ScreenHeader } from "../ui/ScreenHeader";
 import { InlineAlert } from "../ui/InlineAlert";
 import { AppText } from "../ui/Text";
+import { Badge } from "../ui/Badge";
+import { Divider } from "../ui/Divider";
+import { EmptyState } from "../ui/EmptyState";
+import { SkeletonListItem } from "../ui/Skeleton";
+import { FadeInView, SlideInView } from "../animation/AnimatedComponents";
+import { useAccessibility } from "../accessibility/AccessibilityProvider";
 
 type Props = NativeStackScreenProps<MainStackParamList, "Invitations">;
+type InviteeRole = "FACILITATOR" | "TEACHER" | "THERAPIST";
 
-// Invitations are intentionally one-way: the only actions are accept/reject/cancel.
-// This keeps the feature aligned with psychological safety (no chat threads).
+const ROLE_CONFIG: Record<InviteeRole, { label: string; icon: string; description: string }> = {
+  FACILITATOR: { label: "Facilitator", icon: "account-heart-outline", description: "Day-to-day support" },
+  TEACHER:     { label: "Teacher",     icon: "school-outline",         description: "Educational support" },
+  THERAPIST:   { label: "Therapist",   icon: "medical-bag",            description: "Therapeutic support" },
+};
+
+const STATUS_BADGE: Record<string, { color: "success" | "warning" | "neutral" | "danger"; label: string }> = {
+  PENDING:   { color: "warning", label: "Pending"   },
+  ACCEPTED:  { color: "success", label: "Accepted"  },
+  REJECTED:  { color: "danger",  label: "Rejected"  },
+  CANCELLED: { color: "neutral", label: "Cancelled" },
+  EXPIRED:   { color: "neutral", label: "Expired"   },
+};
+
 export function InvitationsScreen({ navigation }: Props) {
   const { session } = useAuth();
   const { config } = useAccessibility();
@@ -31,9 +50,10 @@ export function InvitationsScreen({ navigation }: Props) {
   const [received, setReceived] = useState<ProfessionalInvitation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [inviteeEmail, setInviteeEmail] = useState("");
-  const [inviteeRole, setInviteeRole] = useState<"FACILITATOR" | "TEACHER" | "THERAPIST">("FACILITATOR");
+  const [inviteeRole, setInviteeRole] = useState<InviteeRole>("FACILITATOR");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -57,213 +77,245 @@ export function InvitationsScreen({ navigation }: Props) {
     }
   }, [isParent, session]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const pendingReceived = useMemo(() => received.filter((i) => i.status === "PENDING"), [received]);
 
+  const handleAction = async (fn: () => Promise<void>) => {
+    setActionError(null);
+    try {
+      await fn();
+      await load();
+    } catch (e: any) {
+      setActionError(e?.message ?? "Action failed");
+    }
+  };
+
   return (
     <ScrollScreen>
-      <View style={{ gap: 12 }}>
-        <ScreenHeader
-          title="Invitations"
-          subtitle="Build a support team by invitation. This feature has no chat and no threaded messaging."
-        />
+      <FadeInView>
+        <View style={{ gap: 16 }}>
+          <ScreenHeader
+            title="Invitations"
+            subtitle="Build a support team by invitation. No chat or threaded messaging."
+          />
 
-        {error ? <InlineAlert tone="danger" text={error} /> : null}
-        {success ? <InlineAlert tone="success" text={success} /> : null}
+          {error ? <InlineAlert tone="danger" text={error} /> : null}
+          {actionError ? <InlineAlert tone="danger" text={actionError} /> : null}
+          {success ? <InlineAlert tone="success" text={success} /> : null}
 
-        {isParent ? (
-          <Card>
-            <AppText variant="body" weight="black">
-              Invite a professional
-            </AppText>
-            <AppText variant="caption" tone="muted" style={{ marginTop: 6 }}>
-              Enter an email and choose a role.
-            </AppText>
+          {/* Parent: send invitation form */}
+          {isParent ? (
+            <SlideInView direction="up" delay={100}>
+              <Card variant="elevated" elevation="md">
+                <View style={{ gap: 4, marginBottom: 12 }}>
+                  <AppText variant="body" weight="bold">Invite a professional</AppText>
+                  <AppText variant="caption" tone="muted">Enter an email and choose a role.</AppText>
+                </View>
+                <Divider style={{ marginBottom: 12 }} />
+                <View style={{ gap: 12 }}>
+                  <TextField
+                    label="Email"
+                    value={inviteeEmail}
+                    onChangeText={setInviteeEmail}
+                    autoCapitalize="none"
+                    placeholder="name@example.com"
+                    leftIcon={<MaterialCommunityIcons name="email-outline" size={18} color={colors.textMuted} />}
+                  />
 
-            <View style={{ gap: 10, marginTop: 12 }}>
-              <TextField label="Email" value={inviteeEmail} onChangeText={setInviteeEmail} autoCapitalize="none" placeholder="name@example.com" />
+                  <View style={{ gap: 6 }}>
+                    <AppText variant="label" weight="bold" tone="muted">ROLE</AppText>
+                    <View style={{ gap: 8 }}>
+                      {(Object.entries(ROLE_CONFIG) as [InviteeRole, typeof ROLE_CONFIG[InviteeRole]][]).map(([r, cfg]) => {
+                        const selected = inviteeRole === r;
+                        return (
+                          <Card
+                            key={r}
+                            pressable
+                            onPress={() => setInviteeRole(r)}
+                            style={{
+                              borderColor: selected ? colors.primary : colors.border,
+                              borderWidth: selected ? 2 : 1,
+                              backgroundColor: selected ? colors.surface : colors.surfaceAlt,
+                            }}
+                          >
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                              <MaterialCommunityIcons name={cfg.icon as any} size={20} color={selected ? colors.primary : colors.textMuted} />
+                              <View style={{ flex: 1 }}>
+                                <AppText variant="label" weight="bold" style={{ color: selected ? colors.primary : colors.text }}>
+                                  {cfg.label}
+                                </AppText>
+                                <AppText variant="caption" tone="muted">{cfg.description}</AppText>
+                              </View>
+                              {selected && <MaterialCommunityIcons name="check-circle" size={18} color={colors.primary} />}
+                            </View>
+                          </Card>
+                        );
+                      })}
+                    </View>
+                  </View>
 
-              <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
-                {(
-                  [
-                    { value: "FACILITATOR", label: "Facilitator" },
-                    { value: "TEACHER", label: "Teacher" },
-                    { value: "THERAPIST", label: "Therapist" }
-                  ] as const
-                ).map((r) => {
-                  const selected = inviteeRole === r.value;
+                  <TextField
+                    label="Message (optional)"
+                    value={message}
+                    onChangeText={setMessage}
+                    placeholder="Optional note for the invitee"
+                    multiline
+                    style={{ minHeight: 90, textAlignVertical: "top" }}
+                  />
+
+                  <AppButton
+                    title="Send invitation"
+                    loading={sending}
+                    disabled={sending || !inviteeEmail.trim()}
+                    icon={<MaterialCommunityIcons name="send-outline" size={18} color="#fff" />}
+                    onPress={async () => {
+                      if (!session) return;
+                      setSending(true);
+                      setError(null);
+                      setSuccess(null);
+                      try {
+                        const res = await api.post<{ linked?: boolean; invitation?: ProfessionalInvitation }>(
+                          "/invitations",
+                          { inviteeEmail: inviteeEmail.trim(), inviteeRole, ...(message.trim() ? { message: message.trim() } : {}) },
+                          session
+                        );
+                        setSuccess(res.linked ? "User already exists — connected successfully." : "Invitation sent successfully.");
+                        setInviteeEmail("");
+                        setMessage("");
+                        await load();
+                      } catch (e: any) {
+                        setError(e?.message ?? "Failed to send invitation");
+                      } finally {
+                        setSending(false);
+                      }
+                    }}
+                  />
+                </View>
+              </Card>
+            </SlideInView>
+          ) : (
+            /* Professional: pending count */
+            <SlideInView direction="up" delay={100}>
+              <Card variant="elevated" elevation="md">
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ gap: 4 }}>
+                    <AppText variant="body" weight="bold">Pending invitations</AppText>
+                    <AppText variant="caption" tone="muted">Accept or reject — no replies or chat threads.</AppText>
+                  </View>
+                  <Badge
+                    label={loading ? "…" : String(pendingReceived.length)}
+                    color={pendingReceived.length > 0 ? "warning" : "neutral"}
+                    variant="solid"
+                  />
+                </View>
+              </Card>
+            </SlideInView>
+          )}
+
+          <Divider label={isParent ? "SENT INVITATIONS" : "RECEIVED INVITATIONS"} />
+
+          {loading ? (
+            <View style={{ gap: 8 }}>{[1, 2, 3].map((i) => <SkeletonListItem key={i} />)}</View>
+          ) : isParent ? (
+            sent.length === 0 ? (
+              <EmptyState title="No invitations sent yet" message="Send your first invitation above to build your support team." />
+            ) : (
+              <View style={{ gap: 8 }}>
+                {sent.map((inv, index) => {
+                  const statusCfg = STATUS_BADGE[inv.status] ?? { color: "neutral" as const, label: inv.status };
                   return (
-                    <Pressable
-                      key={r.value}
-                      onPress={() => setInviteeRole(r.value)}
-                      style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
-                    >
-                      <Card style={{ borderColor: selected ? colors.focusRing : colors.border, borderWidth: selected ? 2 : 1 }}>
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>{r.label}</Text>
+                    <SlideInView key={inv.id} direction="up" delay={index * 50}>
+                      <Card variant="elevated" elevation="sm">
+                        <View style={{ gap: 8 }}>
+                          <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                            <View style={{ flex: 1 }}>
+                              <AppText variant="body" weight="bold" numberOfLines={1}>{inv.inviteeEmail}</AppText>
+                              <AppText variant="caption" tone="muted" style={{ marginTop: 2 }}>
+                                {inv.inviteeRole} · Expires {new Date(inv.expiresAt).toDateString()}
+                              </AppText>
+                            </View>
+                            <Badge label={statusCfg.label} color={statusCfg.color} variant="subtle" size="sm" />
+                          </View>
+                          {inv.status === "PENDING" && (
+                            <AppButton
+                              title="Cancel"
+                              variant="ghost"
+                              size="sm"
+                              onPress={() => handleAction(() => api.del(`/invitations/${inv.id}`, session!))}
+                            />
+                          )}
+                        </View>
                       </Card>
-                    </Pressable>
+                    </SlideInView>
                   );
                 })}
               </View>
-
-              <TextField
-                label="Message (optional)"
-                value={message}
-                onChangeText={setMessage}
-                placeholder="Optional note for the invitee"
-                multiline
-                style={{ minHeight: 90, textAlignVertical: "top" }}
-              />
-
-              <AppButton
-                title={sending ? "Sending..." : "Send invitation"}
-                loading={sending}
-                disabled={sending}
-                onPress={async () => {
-                  if (!session) return;
-                  setSending(true);
-                  setError(null);
-                  setSuccess(null);
-                  try {
-                    const res = await api.post<{ linked?: boolean; invitation?: ProfessionalInvitation; link?: string }>(
-                      "/invitations",
-                      { inviteeEmail: inviteeEmail.trim(), inviteeRole, ...(message.trim() ? { message: message.trim() } : {}) },
-                      session
-                    );
-                    if (res.linked) {
-                      setSuccess("User already exists. Connected successfully.");
-                    } else {
-                      setSuccess("Invitation sent.");
-                    }
-                    setInviteeEmail("");
-                    setMessage("");
-                    await load();
-                  } catch (e: any) {
-                    setError(e?.message ?? "Failed to send invitation");
-                  } finally {
-                    setSending(false);
-                  }
-                }}
-              />
+            )
+          ) : received.length === 0 ? (
+            <EmptyState title="No invitations received" message="When a parent invites you, it will appear here." />
+          ) : (
+            <View style={{ gap: 8 }}>
+              {received.map((inv, index) => {
+                const statusCfg = STATUS_BADGE[inv.status] ?? { color: "neutral" as const, label: inv.status };
+                return (
+                  <SlideInView key={inv.id} direction="up" delay={index * 50}>
+                    <Card variant="elevated" elevation="sm">
+                      <View style={{ gap: 8 }}>
+                        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                          <View style={{ flex: 1 }}>
+                            <AppText variant="body" weight="bold">{inv.inviteeRole}</AppText>
+                            <AppText variant="caption" tone="muted" style={{ marginTop: 2 }}>
+                              Expires {new Date(inv.expiresAt).toDateString()}
+                            </AppText>
+                          </View>
+                          <Badge label={statusCfg.label} color={statusCfg.color} variant="subtle" size="sm" />
+                        </View>
+                        {inv.message ? (
+                          <Card variant="solid" style={{ backgroundColor: colors.surfaceAlt }}>
+                            <AppText variant="caption" tone="muted">Message from parent</AppText>
+                            <AppText variant="body" style={{ marginTop: 4 }}>{inv.message}</AppText>
+                          </Card>
+                        ) : null}
+                        {inv.status === "PENDING" && (
+                          <View style={{ flexDirection: "row", gap: 8 }}>
+                            <View style={{ flex: 1 }}>
+                              <AppButton
+                                title="Accept"
+                                variant="success"
+                                size="sm"
+                                icon={<MaterialCommunityIcons name="check" size={16} color="#fff" />}
+                                onPress={() => handleAction(() => api.patch(`/invitations/${inv.id}/accept`, {}, session!))}
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <AppButton
+                                title="Reject"
+                                variant="danger"
+                                size="sm"
+                                icon={<MaterialCommunityIcons name="close" size={16} color="#fff" />}
+                                onPress={() => handleAction(() => api.patch(`/invitations/${inv.id}/reject`, {}, session!))}
+                              />
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    </Card>
+                  </SlideInView>
+                );
+              })}
             </View>
-          </Card>
-        ) : (
-          <Card style={{ backgroundColor: colors.surfaceAlt }}>
-            <AppText variant="body" weight="black">
-              Pending invitations
-            </AppText>
-            <AppText variant="caption" tone="muted" style={{ marginTop: 6 }}>
-              You can accept or reject. There are no replies or chat threads.
-            </AppText>
-            <AppText variant="title" weight="black" style={{ marginTop: 10 }}>
-              {loading ? "…" : String(pendingReceived.length)}
-            </AppText>
-          </Card>
-        )}
+          )}
 
-        {isParent ? (
-          <View style={{ gap: 10 }}>
-            <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>Sent</Text>
-            {sent.length ? (
-              sent.map((i) => (
-                <Card key={i.id}>
-                  <Text style={{ color: colors.text, fontWeight: "900" }}>{i.inviteeEmail}</Text>
-                  <Text style={{ color: colors.textMuted, marginTop: 6 }}>
-                    Role: {i.inviteeRole} · Status: {i.status} · Expires: {new Date(i.expiresAt).toDateString()}
-                  </Text>
-                  {i.status === "PENDING" ? (
-                    <View style={{ marginTop: 12 }}>
-                      <AppButton
-                        title="Cancel invitation"
-                        variant="secondary"
-                        onPress={async () => {
-                          if (!session) return;
-                          setError(null);
-                          try {
-                            await api.del(`/invitations/${i.id}`, session);
-                            await load();
-                          } catch (e: any) {
-                            setError(e?.message ?? "Failed to cancel");
-                          }
-                        }}
-                      />
-                    </View>
-                  ) : null}
-                </Card>
-              ))
-            ) : (
-              <Card style={{ backgroundColor: colors.surfaceAlt }}>
-                <Text style={{ color: colors.textMuted }}>No invitations sent yet.</Text>
-              </Card>
-            )}
-          </View>
-        ) : (
-          <View style={{ gap: 10 }}>
-            <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>Received</Text>
-            {received.length ? (
-              received.map((i) => (
-                <Card key={i.id}>
-                  <Text style={{ color: colors.text, fontWeight: "900" }}>Role: {i.inviteeRole}</Text>
-                  <Text style={{ color: colors.textMuted, marginTop: 6 }}>
-                    Status: {i.status} · Expires: {new Date(i.expiresAt).toDateString()}
-                  </Text>
-                  {i.message ? <Text style={{ color: colors.text, marginTop: 10 }}>Message: {i.message}</Text> : null}
-                  {i.status === "PENDING" ? (
-                    <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-                      <View style={{ flex: 1 }}>
-                        <AppButton
-                          title="Accept"
-                          variant="success"
-                          onPress={async () => {
-                            if (!session) return;
-                            setError(null);
-                            try {
-                              await api.patch(`/invitations/${i.id}/accept`, {}, session);
-                              await load();
-                            } catch (e: any) {
-                              setError(e?.message ?? "Failed");
-                            }
-                          }}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <AppButton
-                          title="Reject"
-                          variant="danger"
-                          onPress={async () => {
-                            if (!session) return;
-                            setError(null);
-                            try {
-                              await api.patch(`/invitations/${i.id}/reject`, {}, session);
-                              await load();
-                            } catch (e: any) {
-                              setError(e?.message ?? "Failed");
-                            }
-                          }}
-                        />
-                      </View>
-                    </View>
-                  ) : null}
-                </Card>
-              ))
-            ) : (
-              <Card style={{ backgroundColor: colors.surfaceAlt }}>
-                <Text style={{ color: colors.textMuted }}>No invitations received.</Text>
-              </Card>
-            )}
-          </View>
-        )}
-
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <AppButton title={loading ? "Loading..." : "Refresh"} variant="secondary" onPress={() => void load()} />
-          <AppButton title="Back" variant="secondary" onPress={() => navigation.goBack()} />
+          <AppButton
+            title="Refresh"
+            variant="secondary"
+            loading={loading}
+            icon={<MaterialCommunityIcons name="refresh" size={18} color={colors.textMuted} />}
+            onPress={() => void load()}
+          />
         </View>
-      </View>
+      </FadeInView>
     </ScrollScreen>
   );
 }

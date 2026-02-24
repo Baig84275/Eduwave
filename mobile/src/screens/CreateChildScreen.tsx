@@ -12,6 +12,7 @@ import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Screen } from "../ui/Screen";
 import { TextField } from "../ui/TextField";
+import { DatePickerField } from "../ui/DatePickerField";
 import { ScreenHeader } from "../ui/ScreenHeader";
 import { InlineAlert } from "../ui/InlineAlert";
 import { AppText } from "../ui/Text";
@@ -23,7 +24,7 @@ export function CreateChildScreen({ navigation }: Props) {
   const { config } = useAccessibility();
   const colors = config.color.colors;
   const [name, setName] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
   const [healthStatus, setHealthStatus] = useState("");
   const [profileUri, setProfileUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,12 +35,12 @@ export function CreateChildScreen({ navigation }: Props) {
       <ScreenHeader title="Create child profile" subtitle="Add details and an optional photo" />
 
       <TextField label="Name" value={name} onChangeText={setName} placeholder="Child name" />
-      <TextField
+      <DatePickerField
         label="Date of birth"
         value={dateOfBirth}
-        onChangeText={setDateOfBirth}
-        placeholder="YYYY-MM-DD"
-        autoCapitalize="none"
+        onChange={setDateOfBirth}
+        maxDate={new Date()}
+        placeholder="Select date of birth"
       />
       <TextField
         label="Health status (optional)"
@@ -70,7 +71,7 @@ export function CreateChildScreen({ navigation }: Props) {
         title={profileUri ? "Change profile picture" : "Pick profile picture"}
         variant="secondary"
         onPress={async () => {
-          const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images });
+          const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"] });
           if (!res.canceled) setProfileUri(res.assets[0].uri);
         }}
       />
@@ -85,7 +86,8 @@ export function CreateChildScreen({ navigation }: Props) {
           setLoading(true);
           setError(null);
           try {
-            const isoDob = new Date(`${dateOfBirth}T00:00:00.000Z`).toISOString();
+            if (!dateOfBirth) { setError("Date of birth is required"); setLoading(false); return; }
+            const isoDob = dateOfBirth.toISOString();
             const created = await api.post<{ child: Child }>(
               "/children",
               { name: name.trim(), dateOfBirth: isoDob, healthStatus: healthStatus.trim() || undefined },

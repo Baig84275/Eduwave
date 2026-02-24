@@ -4,7 +4,10 @@
     "slug": "eduwave-village",
     "version": "1.0.0",
     "orientation": "portrait",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "scheme": "eduwave",
     "ios": {
       "bundleIdentifier": "com.eduwave.village",
@@ -14,10 +17,26 @@
     },
     "android": {
       "package": "com.eduwave.village",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "enableDangerousExperimentalLeanBuilds": true,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDOCAbC123dEf456GhI789jKl01-MnO"
+        }
+      }
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
+    "runtimeVersion": "1.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "c1684990-8630-486e-b90d-821e716c9dbb"
+      }
+    },
+    "owner": "baig84275",
+    "updates": {
+      "url": "https://u.expo.dev/c1684990-8630-486e-b90d-821e716c9dbb"
     }
   }
 }

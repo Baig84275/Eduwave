@@ -5,7 +5,7 @@ import { useAccessibility } from "../accessibility/AccessibilityProvider";
 import { api } from "../api/client";
 import { Role } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
-import { MainStackParamList } from "../navigation/MainStack";
+import { ChildrenStackParamList } from "../navigation/stacks/ChildrenStack";
 import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Screen } from "../ui/Screen";
@@ -14,7 +14,7 @@ import { AppText } from "../ui/Text";
 import { ScreenHeader } from "../ui/ScreenHeader";
 import { InlineAlert } from "../ui/InlineAlert";
 
-type Props = NativeStackScreenProps<MainStackParamList, "AssignFacilitator">;
+type Props = NativeStackScreenProps<ChildrenStackParamList, "AssignFacilitator">;
 
 type AdminUser = {
   id: string;
@@ -131,7 +131,7 @@ export function AssignFacilitatorScreen({ route, navigation }: Props) {
           <AppButton title={loading ? "Refreshing..." : "Refresh list"} variant="secondary" onPress={loadUsers} />
         </View>
         <View style={{ flex: 1 }}>
-          <AppButton title="Open Admin" variant="ghost" onPress={() => navigation.navigate("Admin")} />
+          <AppButton title="Open Admin" variant="ghost" onPress={() => (navigation as any).navigate("ProfileTab", { screen: "Admin" })} />
         </View>
       </View>
     </Screen>

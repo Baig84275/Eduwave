@@ -2,6 +2,7 @@ import React from "react";
 import { StyleProp, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { tokens } from "../theme/tokens";
 
 export function Screen({
   children,
@@ -17,7 +18,10 @@ export function Screen({
 
   return (
     <SafeAreaView style={[{ flex: 1, backgroundColor: colors.background }, style]}>
-      <View style={{ flex: 1, padding, gap }}>{children}</View>
+      {/* paddingBottom clears the absolute-positioned tab bar */}
+      <View style={{ flex: 1, padding, gap, paddingBottom: tokens.components.tabBar.height }}>
+        {children}
+      </View>
     </SafeAreaView>
   );
 }

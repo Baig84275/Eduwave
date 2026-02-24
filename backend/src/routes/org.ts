@@ -8,6 +8,18 @@ import { requireRole } from "../middleware/rbac";
 
 export const orgRouter = Router();
 
+// Public — no auth required. Used by the register screen to populate the org picker.
+orgRouter.get(
+  "/",
+  asyncHandler(async (_req, res) => {
+    const organisations = await prisma.organisation.findMany({
+      select: { id: true, name: true, city: true, province: true },
+      orderBy: { name: "asc" }
+    });
+    res.json({ organisations });
+  })
+);
+
 orgRouter.use(requireAuth);
 
 const overviewQuerySchema = z.object({

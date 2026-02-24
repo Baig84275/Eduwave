@@ -1,202 +1,301 @@
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import React, { useCallback, useState } from "react";
-import { FlatList, Pressable, View } from "react-native";
+import { FlatList, View, StyleSheet, RefreshControl } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 import { api } from "../api/client";
 import { Child } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
-import { MainStackParamList } from "../navigation/MainStack";
-import { AppButton } from "../ui/Button";
-import { Card } from "../ui/Card";
-import { Screen } from "../ui/Screen";
+import { HomeStackParamList } from "../navigation/stacks/HomeStack";
+import { AppButton, IconButton } from "../ui/Button";
+import { Card, CardHeader } from "../ui/Card";
 import { AppText } from "../ui/Text";
 import { InlineAlert } from "../ui/InlineAlert";
-import { ScreenHeader } from "../ui/ScreenHeader";
 import { EmptyState } from "../ui/EmptyState";
+import { Avatar } from "../ui/Avatar";
+import { Badge } from "../ui/Badge";
+import { SkeletonCard } from "../ui/Skeleton";
+import { tokens } from "../theme/tokens";
+import { FadeInView, SlideInView, StaggeredItem } from "../animation/AnimatedComponents";
+import { useToast } from "../ui/ToastProvider";
 
-type Props = NativeStackScreenProps<MainStackParamList, "Children">;
+type NavigationProp = NativeStackNavigationProp<HomeStackParamList>;
 
-export function ChildListScreen({ navigation }: Props) {
-  const { session, logout } = useAuth();
+export function ChildListScreen() {
+  const navigation = useNavigation<NavigationProp>();
+  const { session } = useAuth();
   const { config } = useAccessibility();
   const colors = config.color.colors;
-  const [children, setChildren] = useState<Child[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const isAdmin = session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN";
-  const isFacilitator = session?.user.role === "FACILITATOR";
-  const isTrainer = session?.user.role === "TRAINER_SUPERVISOR";
-  const isOrgAdmin = session?.user.role === "ORG_ADMIN";
-  const hasSupportModules = !!session && session.user.role !== "PARENT";
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
 
-  const getTitle = () => {
-    if (session?.user.role === "SUPER_ADMIN") return "Superadmin";
-    if (isAdmin) return "Admin Dashboard";
-    if (isOrgAdmin) return "Organization Dashboard";
-    if (isTrainer) return "Trainer Dashboard";
-    if (isFacilitator) return "My Assignments";
-    return "Children";
-  };
+  const [children, setChildren] = useState<Child[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isParent = session?.user.role === "PARENT";
+
+  const fetchChildren = useCallback(
+    async (showRefresh = false) => {
+      try {
+        if (showRefresh) setRefreshing(true);
+        else setLoading(true);
+        setError(null);
+        const res = await api.get<{ children: Child[] }>("/children", session);
+        setChildren(res.children);
+      } catch (e: any) {
+        setError(e?.message ?? "Failed to load children");
+        toast.error("Error", e?.message ?? "Failed to load children");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [session, toast]
+  );
 
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        try {
-          setError(null);
-          const res = await api.get<{ children: Child[] }>("/children", session);
-          if (!cancelled) setChildren(res.children);
-        } catch (e: any) {
-          if (!cancelled) setError(e?.message ?? "Failed to load");
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [session])
+      fetchChildren();
+    }, [fetchChildren])
   );
+
+  const handleRefresh = () => fetchChildren(true);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      {/* Welcome Card with Gradient */}
+      <FadeInView delay={0}>
+        <LinearGradient
+          colors={[colors.gradientStart, colors.gradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.welcomeCard, { borderRadius: tokens.radius.xl }]}
+        >
+          <View style={styles.welcomeContent}>
+            <View style={styles.welcomeText}>
+              <AppText variant="body" style={{ color: "rgba(255,255,255,0.8)" }}>
+                {getGreeting()}
+              </AppText>
+              <AppText variant="h2" weight="bold" style={{ color: "#FFFFFF", marginTop: 4 }}>
+                {session?.user.email?.split("@")[0] || "User"}
+              </AppText>
+              <AppText variant="caption" style={{ color: "rgba(255,255,255,0.7)", marginTop: 8 }}>
+                {isParent
+                  ? `${children.length} child profile${children.length !== 1 ? "s" : ""}`
+                  : `${children.length} assigned child${children.length !== 1 ? "ren" : ""}`}
+              </AppText>
+            </View>
+            <Avatar
+              name={session?.user.email || "User"}
+              size="lg"
+              showGradientBorder={false}
+            />
+          </View>
+        </LinearGradient>
+      </FadeInView>
+
+      {/* Quick Actions */}
+      {isParent && (
+        <SlideInView direction="up" delay={100}>
+          <AppButton
+            title="Add Child Profile"
+            variant="primary"
+            size="lg"
+            fullWidth
+            icon={<MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />}
+            onPress={() => navigation.navigate("CreateChild")}
+          />
+        </SlideInView>
+      )}
+
+      {/* Section Header */}
+      <SlideInView direction="up" delay={150}>
+        <View style={styles.sectionHeader}>
+          <AppText variant="h3" weight="bold">
+            {isParent ? "My Children" : "Assigned Children"}
+          </AppText>
+          <Badge
+            label={`${children.length}`}
+            color="primary"
+            variant="subtle"
+            size="sm"
+          />
+        </View>
+      </SlideInView>
+
+      {error && (
+        <SlideInView direction="up" delay={200}>
+          <InlineAlert tone="danger" text={error} />
+        </SlideInView>
+      )}
+    </View>
+  );
+
+  const renderChild = ({ item, index }: { item: Child; index: number }) => {
+    const age = Math.floor(
+      (Date.now() - new Date(item.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+    );
+
+    return (
+      <StaggeredItem index={index} staggerDelay={50}>
+        <Card
+          variant="elevated"
+          pressable
+          onPress={() => navigation.navigate("Child", { childId: item.id })}
+          style={styles.childCard}
+        >
+          <View style={styles.childCardContent}>
+            <Avatar name={item.name} size="lg" />
+            <View style={styles.childInfo}>
+              <AppText variant="body" weight="semibold">
+                {item.name}
+              </AppText>
+              <AppText variant="caption" tone="muted" style={{ marginTop: 2 }}>
+                {age} years old
+              </AppText>
+              <View style={styles.childMeta}>
+                <Badge
+                  label={new Date(item.dateOfBirth).toLocaleDateString()}
+                  color="neutral"
+                  variant="subtle"
+                  size="sm"
+                />
+              </View>
+            </View>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={24}
+              color={colors.textMuted}
+            />
+          </View>
+        </Card>
+      </StaggeredItem>
+    );
+  };
+
+  const renderEmpty = () => {
+    if (loading) {
+      return (
+        <View style={styles.skeletonContainer}>
+          <SkeletonCard />
+          <SkeletonCard />
+        </View>
+      );
+    }
+
+    return (
+      <FadeInView delay={200}>
+        <EmptyState
+          title={isParent ? "No children yet" : "No assignments"}
+          message={
+            isParent
+              ? "Create your first child profile to start tracking their progress and connecting with facilitators."
+              : "You haven't been assigned to any children yet. Contact your supervisor for assignments."
+          }
+          action={
+            isParent ? (
+              <AppButton
+                title="Create Child Profile"
+                variant="primary"
+                onPress={() => navigation.navigate("CreateChild")}
+                icon={<MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />}
+              />
+            ) : undefined
+          }
+        />
+      </FadeInView>
+    );
+  };
 
   return (
-    <Screen>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingVertical: 4, gap: 12 }}
         data={children}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={
-          <View style={{ gap: 12 }}>
-            <Card style={{ backgroundColor: colors.surfaceAlt }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <View style={{ gap: 4, flex: 1 }}>
-                  <ScreenHeader title={getTitle()} subtitle={session?.user.email ?? "Your profiles and assignments"} />
-                </View>
-                <View style={{ width: 120 }}>
-                  <AppButton title="Logout" variant="secondary" onPress={logout} />
-                </View>
-              </View>
-
-              <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-                {session?.user.role === "PARENT" ? (
-                  <View style={{ minWidth: 180, flexGrow: 1 }}>
-                    <AppButton title="Create child profile" onPress={() => navigation.navigate("CreateChild")} />
-                  </View>
-                ) : null}
-                <View style={{ minWidth: 180, flexGrow: 1 }}>
-                  <AppButton title="Accessibility" variant="secondary" onPress={() => navigation.navigate("Accessibility")} />
-                </View>
-                <View style={{ minWidth: 180, flexGrow: 1 }}>
-                  <AppButton title="Invitations" variant="secondary" onPress={() => navigation.navigate("Invitations")} />
-                </View>
-                {hasSupportModules ? (
-                  <View style={{ minWidth: 180, flexGrow: 1 }}>
-                    <AppButton title="Resources" variant="secondary" onPress={() => navigation.navigate("Resources")} />
-                  </View>
-                ) : null}
-                {isFacilitator ? (
-                  <>
-                    <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton title="Check-in" onPress={() => navigation.navigate("CheckIn")} />
-                    </View>
-                    <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton title="My journey" variant="secondary" onPress={() => navigation.navigate("Journey")} />
-                    </View>
-                    <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton title="Training" variant="secondary" onPress={() => navigation.navigate("TrainingCourses")} />
-                    </View>
-                    <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton title="Training hub" variant="secondary" onPress={() => navigation.navigate("TrainingHub")} />
-                    </View>
-                    <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton
-                        title="Supervision logs"
-                        variant="secondary"
-                        onPress={() => navigation.navigate("SupervisionLogs")}
-                      />
-                    </View>
-                  </>
-                ) : null}
-                {isTrainer ? (
-                  <>
-                    <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton
-                        title="Supervision logs"
-                        variant="secondary"
-                        onPress={() => navigation.navigate("SupervisionLogs")}
-                      />
-                    </View>
-                    <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton title="Training" variant="secondary" onPress={() => navigation.navigate("TrainingHub")} />
-                    </View>
-                    <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton
-                        title="Trainer dashboard"
-                        variant="secondary"
-                        onPress={() => navigation.navigate("TrainerDashboard")}
-                      />
-                    </View>
-                  </>
-                ) : null}
-                {isOrgAdmin ? (
-                  <View style={{ minWidth: 180, flexGrow: 1 }}>
-                    <AppButton title="Org overview" variant="secondary" onPress={() => navigation.navigate("OrgOverview")} />
-                  </View>
-                ) : null}
-                {isAdmin ? (
-                  <View style={{ minWidth: 180, flexGrow: 1 }}>
-                    <AppButton title="Admin" variant="secondary" onPress={() => navigation.navigate("Admin")} />
-                  </View>
-                ) : null}
-                {isAdmin ? (
-                  <>
-                    <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton
-                        title="Supervision logs"
-                        variant="secondary"
-                        onPress={() => navigation.navigate("SupervisionLogs")}
-                      />
-                    </View>
-                    <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton title="Training" variant="secondary" onPress={() => navigation.navigate("TrainingHub")} />
-                    </View>
-                    <View style={{ minWidth: 180, flexGrow: 1 }}>
-                      <AppButton title="Org overview" variant="secondary" onPress={() => navigation.navigate("OrgOverview")} />
-                    </View>
-                  </>
-                ) : null}
-              </View>
-            </Card>
-
-            {error ? <InlineAlert tone="danger" text={error} /> : null}
-          </View>
-        }
-        ListEmptyComponent={
-          <EmptyState
-            title="No profiles yet"
-            message={
-              session?.user.role === "PARENT"
-                ? "Create a child profile to get started."
-                : "No child profiles are assigned to this account yet."
-            }
+        renderItem={renderChild}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmpty}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingTop: insets.top + tokens.spacing.md },
+        ]}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
-        renderItem={({ item }) => {
-          return (
-            <Pressable
-              onPress={() => navigation.navigate("Child", { childId: item.id })}
-              style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
-            >
-              <Card>
-                <AppText variant="body" weight="semibold">
-                  {item.name}
-                </AppText>
-                <AppText variant="caption" tone="muted" style={{ marginTop: 4 }}>
-                  {new Date(item.dateOfBirth).toDateString()}
-                </AppText>
-              </Card>
-            </Pressable>
-          );
-        }}
+        ListFooterComponent={
+          <View style={{ height: tokens.components.tabBar.height + insets.bottom + tokens.spacing.lg }} />
+        }
       />
-    </Screen>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: tokens.spacing.lg,
+    gap: tokens.spacing.md,
+  },
+  headerContainer: {
+    gap: tokens.spacing.md,
+    marginBottom: tokens.spacing.sm,
+  },
+  welcomeCard: {
+    padding: tokens.spacing.xl,
+    overflow: "hidden",
+  },
+  welcomeContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  welcomeText: {
+    flex: 1,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: tokens.spacing.sm,
+  },
+  childCard: {
+    marginBottom: tokens.spacing.xs,
+  },
+  childCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: tokens.spacing.md,
+  },
+  childInfo: {
+    flex: 1,
+  },
+  childMeta: {
+    flexDirection: "row",
+    gap: tokens.spacing.xs,
+    marginTop: tokens.spacing.xs,
+  },
+  skeletonContainer: {
+    gap: tokens.spacing.md,
+  },
+});

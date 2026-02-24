@@ -10,6 +10,7 @@ import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
 import { TextField } from "../ui/TextField";
+import { DatePickerField } from "../ui/DatePickerField";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 import { AppText } from "../ui/Text";
 import { ScreenHeader } from "../ui/ScreenHeader";
@@ -27,12 +28,12 @@ export function CreateSupervisionLogScreen({ navigation }: Props) {
   const [facilitators, setFacilitators] = useState<Array<{ id: string; email: string }>>([]);
   const [loadingFacilitators, setLoadingFacilitators] = useState(false);
   const [childId, setChildId] = useState("");
-  const [observationDate, setObservationDate] = useState(new Date().toISOString());
+  const [observationDate, setObservationDate] = useState<Date>(new Date());
   const [strengths, setStrengths] = useState("");
   const [challenges, setChallenges] = useState("");
   const [strategies, setStrategies] = useState("");
   const [followUpRequired, setFollowUpRequired] = useState(false);
-  const [followUpDate, setFollowUpDate] = useState("");
+  const [followUpDate, setFollowUpDate] = useState<Date | null>(null);
   const [previousLogId, setPreviousLogId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,11 +124,11 @@ export function CreateSupervisionLogScreen({ navigation }: Props) {
         <View style={{ gap: 12 }}>
             <AppText variant="h3">Details</AppText>
             <TextField label="Child ID (optional)" value={childId} onChangeText={setChildId} placeholder="Optional" />
-            <TextField
-              label="Observation date (ISO)"
+            <DatePickerField
+              label="Observation date"
               value={observationDate}
-              onChangeText={setObservationDate}
-              placeholder={new Date().toISOString()}
+              onChange={setObservationDate}
+              maxDate={new Date()}
             />
             <TextField
               label="Strengths observed"
@@ -181,11 +182,11 @@ export function CreateSupervisionLogScreen({ navigation }: Props) {
               </Card>
             </Pressable>
     
-            <TextField
-              label="Follow-up date (ISO, optional)"
+            <DatePickerField
+              label="Follow-up date (optional)"
               value={followUpDate}
-              onChangeText={setFollowUpDate}
-              placeholder="e.g., 2026-02-10T00:00:00.000Z"
+              onChange={setFollowUpDate}
+              placeholder="Select follow-up date"
             />
             <TextField label="Previous log ID (optional)" value={previousLogId} onChangeText={setPreviousLogId} placeholder="Optional" />
         </View>
@@ -214,12 +215,12 @@ export function CreateSupervisionLogScreen({ navigation }: Props) {
                         {
                           facilitatorId: facilitatorId.trim(),
                           childId: childId.trim() ? childId.trim() : null,
-                          observationDate,
+                          observationDate: observationDate.toISOString(),
                           strengths: strengths.trim() ? strengths.trim() : null,
                           challenges: challenges.trim() ? challenges.trim() : null,
                           strategies: strategies.trim() ? strategies.trim() : null,
                           followUpRequired,
-                          followUpDate: followUpDate.trim() ? followUpDate.trim() : null,
+                          followUpDate: followUpDate ? followUpDate.toISOString() : null,
                           previousLogId: previousLogId.trim() ? previousLogId.trim() : null
                         },
                         session
@@ -227,11 +228,12 @@ export function CreateSupervisionLogScreen({ navigation }: Props) {
                       setSuccess("Created");
                       setFacilitatorId("");
                       setChildId("");
+                      setObservationDate(new Date());
                       setStrengths("");
                       setChallenges("");
                       setStrategies("");
                       setFollowUpRequired(false);
-                      setFollowUpDate("");
+                      setFollowUpDate(null);
                       setPreviousLogId("");
                     } catch (e: any) {
                       setError(e?.message ?? "Failed to create");
