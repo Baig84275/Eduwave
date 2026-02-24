@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { TrainingReflection } from "../api/types";
@@ -10,6 +10,14 @@ import { MainStackParamList } from "../navigation/MainStack";
 import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
+import { ScreenHeader } from "../ui/ScreenHeader";
+import { AppText } from "../ui/Text";
+import { InlineAlert } from "../ui/InlineAlert";
+import { Badge } from "../ui/Badge";
+import { Divider } from "../ui/Divider";
+import { EmptyState } from "../ui/EmptyState";
+import { SkeletonCard } from "../ui/Skeleton";
+import { FadeInView, SlideInView } from "../animation/AnimatedComponents";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 
 type Props = NativeStackScreenProps<MainStackParamList, "TrainingReflections">;
@@ -38,11 +46,7 @@ export function TrainingReflectionsScreen({ navigation }: Props) {
     }
   }, [session]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load])
-  );
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const grouped = useMemo(() => {
     const byCourse: Record<string, TrainingReflection[]> = {};
@@ -55,81 +59,122 @@ export function TrainingReflectionsScreen({ navigation }: Props) {
 
   return (
     <ScrollScreen>
-      <View style={{ gap: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text }}>Training journey</Text>
-        <Text style={{ color: colors.textMuted }}>Your reflections over time.</Text>
+      <FadeInView>
+        <View style={{ gap: 16 }}>
+          <ScreenHeader
+            title="Training Journey"
+            subtitle="Your reflections over time."
+          />
 
-        {error ? <Text style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
-        <Text style={{ color: colors.textMuted }}>{loading ? "Loading..." : `${items.length} reflections`}</Text>
+          {error ? <InlineAlert tone="danger" text={error} /> : null}
 
-        {grouped.map(([courseId, reflections]) => (
-          <View key={courseId} style={{ gap: 10 }}>
-            <Text style={{ color: colors.text, fontWeight: "900", fontSize: 16 }}>Course: {courseId}</Text>
-            {reflections.map((r) => {
-              const isExpanded = expandedId === r.id;
-              const cc = typeof r.confidenceChange === "number" ? r.confidenceChange : null;
-              const ccColor = cc == null ? colors.textMuted : cc > 0 ? "#16A34A" : cc < 0 ? "#DC2626" : "#F59E0B";
-              return (
-                <Pressable
-                  key={r.id}
-                  onPress={() => setExpandedId(isExpanded ? null : r.id)}
-                  style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
-                >
-                  <Card>
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: colors.text, fontWeight: "900" }}>{r.moduleName}</Text>
-                        <Text style={{ color: colors.textMuted, marginTop: 4 }}>
-                          {new Date(r.createdAt).toLocaleDateString()}{" "}
-                          {cc != null ? `· Confidence ${cc > 0 ? "+" : ""}${cc}` : ""}
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        {typeof r.helpfulRating === "number" ? (
-                          <>
-                            <MaterialCommunityIcons name="star" size={18} color="#F59E0B" />
-                            <Text style={{ color: colors.textMuted, fontWeight: "900" }}>{r.helpfulRating}</Text>
-                          </>
-                        ) : null}
-                        {cc != null ? <MaterialCommunityIcons name="chart-line" size={18} color={ccColor} /> : null}
-                      </View>
-                    </View>
+          {loading ? (
+            <View style={{ gap: 12 }}>{[1, 2, 3].map((i) => <SkeletonCard key={i} />)}</View>
+          ) : items.length === 0 ? (
+            <EmptyState
+              title="No reflections yet"
+              message="Complete a training module to submit your first reflection."
+            />
+          ) : (
+            grouped.map(([courseId, reflections], groupIndex) => (
+              <SlideInView key={courseId} direction="up" delay={groupIndex * 80}>
+                <View style={{ gap: 10 }}>
+                  <Divider label={`COURSE ${courseId}`} />
+                  {reflections.map((r, index) => {
+                    const isExpanded = expandedId === r.id;
+                    const cc = typeof r.confidenceChange === "number" ? r.confidenceChange : null;
+                    const ccColor = cc == null ? colors.textMuted : cc > 0 ? colors.success : cc < 0 ? colors.danger : colors.warning;
 
-                    {isExpanded ? (
-                      <View style={{ gap: 10, marginTop: 12 }}>
-                        <View>
-                          <Text style={{ color: colors.text, fontWeight: "900" }}>What did you learn?</Text>
-                          <Text style={{ color: colors.text, marginTop: 6 }}>{r.reflectionText}</Text>
-                        </View>
-                        <View>
-                          <Text style={{ color: colors.text, fontWeight: "900" }}>How did you apply it?</Text>
-                          <Text style={{ color: colors.text, marginTop: 6 }}>{r.applicationNote}</Text>
-                        </View>
-                        {r.challengesFaced ? (
-                          <View>
-                            <Text style={{ color: colors.text, fontWeight: "900" }}>Challenges</Text>
-                            <Text style={{ color: colors.text, marginTop: 6 }}>{r.challengesFaced}</Text>
+                    return (
+                      <Card
+                        key={r.id}
+                        pressable
+                        onPress={() => setExpandedId(isExpanded ? null : r.id)}
+                        variant="elevated"
+                        elevation="sm"
+                      >
+                        <View style={{ gap: 8 }}>
+                          {/* Header row */}
+                          <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                            <View style={{ flex: 1 }}>
+                              <AppText variant="body" weight="bold" numberOfLines={2}>{r.moduleName}</AppText>
+                              <AppText variant="caption" tone="muted" style={{ marginTop: 2 }}>
+                                {new Date(r.createdAt).toLocaleDateString()}
+                              </AppText>
+                            </View>
+                            <View style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
+                              {typeof r.helpfulRating === "number" ? (
+                                <Badge
+                                  label={String(r.helpfulRating)}
+                                  color="warning"
+                                  variant="subtle"
+                                  size="sm"
+                                  icon={<MaterialCommunityIcons name="star" size={12} color={colors.warning} />}
+                                />
+                              ) : null}
+                              {cc != null ? (
+                                <Badge
+                                  label={`${cc > 0 ? "+" : ""}${cc}`}
+                                  color={cc > 0 ? "success" : cc < 0 ? "danger" : "warning"}
+                                  variant="subtle"
+                                  size="sm"
+                                  icon={<MaterialCommunityIcons name="chart-line" size={12} color={ccColor} />}
+                                />
+                              ) : null}
+                              <MaterialCommunityIcons
+                                name={isExpanded ? "chevron-up" : "chevron-down"}
+                                size={18}
+                                color={colors.textMuted}
+                              />
+                            </View>
                           </View>
-                        ) : null}
-                        {r.supportNeeded ? (
-                          <View>
-                            <Text style={{ color: colors.text, fontWeight: "900" }}>Support needed</Text>
-                            <Text style={{ color: colors.text, marginTop: 6 }}>{r.supportNeeded}</Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    ) : null}
-                  </Card>
-                </Pressable>
-              );
-            })}
-          </View>
-        ))}
 
-        <AppButton title="Refresh" variant="secondary" onPress={() => void load()} />
-        <AppButton title="Back" variant="secondary" onPress={() => navigation.goBack()} />
-      </View>
+                          {/* Expanded content */}
+                          {isExpanded && (
+                            <>
+                              <Divider />
+                              <View style={{ gap: 12 }}>
+                                <View style={{ gap: 4 }}>
+                                  <AppText variant="label" weight="bold" tone="muted">WHAT DID YOU LEARN?</AppText>
+                                  <AppText variant="body">{r.reflectionText}</AppText>
+                                </View>
+                                <View style={{ gap: 4 }}>
+                                  <AppText variant="label" weight="bold" tone="muted">HOW DID YOU APPLY IT?</AppText>
+                                  <AppText variant="body">{r.applicationNote}</AppText>
+                                </View>
+                                {r.challengesFaced ? (
+                                  <View style={{ gap: 4 }}>
+                                    <AppText variant="label" weight="bold" tone="muted">CHALLENGES</AppText>
+                                    <AppText variant="body">{r.challengesFaced}</AppText>
+                                  </View>
+                                ) : null}
+                                {r.supportNeeded ? (
+                                  <View style={{ gap: 4 }}>
+                                    <AppText variant="label" weight="bold" tone="muted">SUPPORT NEEDED</AppText>
+                                    <AppText variant="body">{r.supportNeeded}</AppText>
+                                  </View>
+                                ) : null}
+                              </View>
+                            </>
+                          )}
+                        </View>
+                      </Card>
+                    );
+                  })}
+                </View>
+              </SlideInView>
+            ))
+          )}
+
+          <AppButton
+            title="Refresh"
+            variant="secondary"
+            loading={loading}
+            icon={<MaterialCommunityIcons name="refresh" size={18} color={colors.textMuted} />}
+            onPress={() => void load()}
+          />
+        </View>
+      </FadeInView>
     </ScrollScreen>
   );
 }
-

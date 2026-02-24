@@ -109,6 +109,7 @@ export type Resource = {
   category: ResourceCategory;
   province: string;
   city: string;
+  town?: string | null;
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -236,6 +237,13 @@ export type TrainingJourney = {
   stats: { assignedCount: number; completedCount: number; reflectionsCount: number };
   confidenceTrend: Array<{ createdAt: string; confidenceChange: number }>;
   courses: Array<{ courseId: string; reflections: TrainingReflection[] }>;
+};
+
+export type Organisation = {
+  id: string;
+  name: string;
+  city?: string | null;
+  province?: string | null;
 };
 
 export type OrgOverview = {

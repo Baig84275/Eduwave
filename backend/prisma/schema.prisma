@@ -277,6 +277,7 @@ model Resource {
   category    ResourceCategory
   province    String
   city        String
+  town        String?
   address     String?
   latitude    Float?
   longitude   Float?

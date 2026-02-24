@@ -4,7 +4,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Linking, Text, View } from "react-native";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { MainStackParamList } from "../navigation/MainStack";
+import { HomeStackParamList } from "../navigation/stacks/HomeStack";
 import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
@@ -13,7 +13,7 @@ import { AppText } from "../ui/Text";
 import { ScreenHeader } from "../ui/ScreenHeader";
 import { InlineAlert } from "../ui/InlineAlert";
 
-type Props = NativeStackScreenProps<MainStackParamList, "TrainerDashboard">;
+type Props = NativeStackScreenProps<HomeStackParamList, "TrainerDashboard">;
 
 type Dashboard = {
   organisationId: string;

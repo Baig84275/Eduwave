@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Pressable, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "../api/client";
-import { MainStackParamList } from "../navigation/MainStack";
+import { TrainingStackParamList } from "../navigation/stacks/TrainingStack";
 import { useAuth } from "../auth/AuthContext";
 import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -14,7 +14,7 @@ import { AppText } from "../ui/Text";
 import { ScreenHeader } from "../ui/ScreenHeader";
 import { InlineAlert } from "../ui/InlineAlert";
 
-type Props = NativeStackScreenProps<MainStackParamList, "TrainingReflection">;
+type Props = NativeStackScreenProps<TrainingStackParamList, "TrainingReflection">;
 
 export function TrainingReflectionFormScreen({ navigation, route }: Props) {
   const { session } = useAuth();

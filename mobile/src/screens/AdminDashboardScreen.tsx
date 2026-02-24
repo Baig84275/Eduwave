@@ -1,16 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, View } from "react-native";
-import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { AdminPermission, Role } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { useToast } from "../ui/ToastProvider";
 import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
 import { TextField } from "../ui/TextField";
-import { ScreenHeader } from "../ui/ScreenHeader";
-import { InlineAlert } from "../ui/InlineAlert";
 import { AppText } from "../ui/Text";
+import { Badge } from "../ui/Badge";
+import { Avatar } from "../ui/Avatar";
+import { Divider } from "../ui/Divider";
+import { ListItem } from "../ui/ListItem";
+import { EmptyState } from "../ui/EmptyState";
+import { SkeletonListItem } from "../ui/Skeleton";
+import { FadeInView } from "../animation/AnimatedComponents";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type AdminUser = {
   id: string;
@@ -21,454 +31,946 @@ type AdminUser = {
   createdAt?: string;
 };
 
+type Org = {
+  id: string;
+  name: string;
+  province?: string | null;
+  city?: string | null;
+  createdAt?: string;
+};
+
+type Tab = "users" | "orgs";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const ROLE_CFG: Record<Role, { color: "primary" | "success" | "warning" | "danger" | "info" | "neutral"; label: string; icon: string }> = {
+  PARENT:             { color: "neutral",  label: "Parent",          icon: "account"              },
+  FACILITATOR:        { color: "primary",  label: "Facilitator",     icon: "account-heart"        },
+  TEACHER:            { color: "info",     label: "Teacher",         icon: "school"               },
+  THERAPIST:          { color: "info",     label: "Therapist",       icon: "medical-bag"          },
+  TRAINER_SUPERVISOR: { color: "warning",  label: "Trainer",         icon: "account-star"         },
+  ORG_ADMIN:          { color: "success",  label: "Org Admin",       icon: "office-building"      },
+  ADMIN:              { color: "danger",   label: "Admin",           icon: "shield-account"       },
+  SUPER_ADMIN:        { color: "danger",   label: "Super Admin",     icon: "shield-crown"         },
+};
+
+const ROLE_ORDER: Role[] = [
+  "SUPER_ADMIN", "ADMIN", "ORG_ADMIN", "TRAINER_SUPERVISOR",
+  "FACILITATOR", "TEACHER", "THERAPIST", "PARENT",
+];
+
+const ASSIGNABLE_ROLES: Role[] = [
+  "FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR",
+  "ORG_ADMIN", "ADMIN",
+];
+
+const PERMISSIONS: { value: AdminPermission; label: string; icon: string }[] = [
+  { value: "DELETE_USERS",    label: "Delete Users",    icon: "account-remove" },
+  { value: "DELETE_CHILDREN", label: "Delete Children", icon: "delete"         },
+];
+
+// ─── Small helpers ────────────────────────────────────────────────────────────
+
+function StatCard({ icon, label, value, color }: { icon: string; label: string; value: number; color: string }) {
+  const { config } = useAccessibility();
+  const colors = config.color.colors;
+  return (
+    <View style={[styles.statCard, { backgroundColor: colors.surface + "CC", borderColor: "#FFFFFF22" }]}>
+      <MaterialCommunityIcons name={icon as any} size={18} color={color} />
+      <AppText variant="h3" weight="black" style={{ color }}>{value}</AppText>
+      <AppText variant="caption" style={{ color: "#BAE6FD", textAlign: "center" }}>{label}</AppText>
+    </View>
+  );
+}
+
+function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+  const { config } = useAccessibility();
+  const colors = config.color.colors;
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <MaterialCommunityIcons name={icon as any} size={14} color={colors.textMuted} />
+      <AppText variant="caption" tone="muted" style={{ width: 88 }}>{label}</AppText>
+      <AppText variant="caption" weight="semibold" style={{ flex: 1 }} numberOfLines={1}>{value}</AppText>
+    </View>
+  );
+}
+
+// ─── Tab Bar ──────────────────────────────────────────────────────────────────
+
+function AdminTabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
+  const { config } = useAccessibility();
+  const colors = config.color.colors;
+  const TABS: { value: Tab; label: string; icon: string }[] = [
+    { value: "users", label: "Users",         icon: "account-group"    },
+    { value: "orgs",  label: "Organisations", icon: "office-building"  },
+  ];
+  return (
+    <View style={[styles.tabBar, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      {TABS.map((t) => {
+        const active_ = active === t.value;
+        return (
+          <Pressable
+            key={t.value}
+            onPress={() => onChange(t.value)}
+            style={[styles.tabItem, active_ && { backgroundColor: colors.primary, borderRadius: 10 }]}
+          >
+            <MaterialCommunityIcons name={t.icon as any} size={16} color={active_ ? "#fff" : colors.textMuted} />
+            <AppText variant="label" weight="semibold" style={{ color: active_ ? "#fff" : colors.textMuted }}>
+              {t.label}
+            </AppText>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── Role Picker ──────────────────────────────────────────────────────────────
+
+function RolePicker({ selected, onSelect, includeSuper }: { selected: Role; onSelect: (r: Role) => void; includeSuper: boolean }) {
+  const { config } = useAccessibility();
+  const colors = config.color.colors;
+  const roles = includeSuper ? [...ASSIGNABLE_ROLES, "SUPER_ADMIN" as Role] : ASSIGNABLE_ROLES;
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+      {roles.map((r) => {
+        const active = selected === r;
+        return (
+          <Pressable
+            key={r}
+            onPress={() => onSelect(r)}
+            style={[
+              styles.rolePill,
+              {
+                backgroundColor: active ? colors.primary : colors.surfaceAlt,
+                borderColor: active ? colors.primary : colors.border,
+              },
+            ]}
+          >
+            <AppText variant="caption" weight="semibold" style={{ color: active ? "#fff" : colors.text }}>
+              {ROLE_CFG[r].label}
+            </AppText>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── Search Bar ───────────────────────────────────────────────────────────────
+
+function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { config } = useAccessibility();
+  const colors = config.color.colors;
+  return (
+    <View style={[styles.searchBar, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <MaterialCommunityIcons name="magnify" size={18} color={colors.textMuted} />
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder="Search by email or role…"
+        placeholderTextColor={colors.textMuted}
+        style={[styles.searchInput, { color: colors.text }]}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      {value.length > 0 && (
+        <Pressable onPress={() => onChange("")}>
+          <MaterialCommunityIcons name="close-circle" size={16} color={colors.textMuted} />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+// ─── User Management Panel ────────────────────────────────────────────────────
+
+type PanelSection = "info" | "role" | "org" | "perms";
+
+function UserManagementPanel({
+  user, orgs, orgNameById, isSuperAdmin, session, onDone, onRefresh,
+}: {
+  user: AdminUser;
+  orgs: Org[];
+  orgNameById: Map<string, string>;
+  isSuperAdmin: boolean;
+  session: any;
+  onDone: () => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const { config } = useAccessibility();
+  const colors = config.color.colors;
+  const toast = useToast();
+  const cfg = ROLE_CFG[user.role];
+
+  const [section, setSection] = useState<PanelSection>("info");
+  const [perms, setPerms] = useState<AdminPermission[]>([]);
+  const [loadingPerms, setLoadingPerms] = useState(false);
+  const [newRole, setNewRole] = useState<Role>(user.role);
+  const [savingRole, setSavingRole] = useState(false);
+  const [savingOrg, setSavingOrg] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (section !== "perms" || !isSuperAdmin || !session) return;
+    setLoadingPerms(true);
+    api.get<{ permissions: Array<{ permission: AdminPermission }> }>(`/admin/users/${user.id}/permissions`, session)
+      .then((r) => setPerms(r.permissions.map((p) => p.permission)))
+      .catch(() => {})
+      .finally(() => setLoadingPerms(false));
+  }, [section, user.id, isSuperAdmin, session]);
+
+  const saveRole = async () => {
+    if (newRole === user.role) { setSection("info"); return; }
+    setSavingRole(true);
+    try {
+      await api.patch(`/admin/users/${user.id}/role`, { role: newRole }, session);
+      toast.success("Role updated", `${user.email} → ${ROLE_CFG[newRole].label}`);
+      await onRefresh();
+      onDone();
+    } catch (e: any) {
+      toast.error("Role change failed", e?.message);
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  const assignOrg = async (orgId: string | null) => {
+    setSavingOrg(orgId ?? "__clear__");
+    try {
+      await api.patch(`/admin/users/${user.id}/organisation`, { organisationId: orgId }, session);
+      toast.success("Organisation updated");
+      await onRefresh();
+      onDone();
+    } catch (e: any) {
+      toast.error("Failed", e?.message);
+    } finally {
+      setSavingOrg(null);
+    }
+  };
+
+  const togglePerm = async (p: AdminPermission) => {
+    const has = perms.includes(p);
+    try {
+      if (has) {
+        await api.post("/admin/permissions/revoke", { userId: user.id, permission: p }, session);
+        setPerms((prev) => prev.filter((x) => x !== p));
+        toast.info("Permission revoked");
+      } else {
+        await api.post("/admin/permissions/grant", { userId: user.id, permission: p }, session);
+        setPerms((prev) => [...prev, p]);
+        toast.success("Permission granted");
+      }
+    } catch (e: any) {
+      toast.error("Failed", e?.message);
+    }
+  };
+
+  const deleteUser = async () => {
+    setDeleting(true);
+    try {
+      await api.del(`/users/${user.id}`, session);
+      toast.success("User deleted", user.email);
+      await onRefresh();
+      onDone();
+    } catch (e: any) {
+      toast.error("Delete failed", e?.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const SECTIONS: { key: PanelSection; label: string; icon: string }[] = [
+    { key: "info",  label: "Info",  icon: "information-outline" },
+    { key: "role",  label: "Role",  icon: "account-cog"         },
+    { key: "org",   label: "Org",   icon: "office-building"     },
+    ...(isSuperAdmin ? [{ key: "perms" as PanelSection, label: "Perms", icon: "shield-key" }] : []),
+  ];
+
+  return (
+    <Card variant="outlined" style={{ borderColor: colors.primary, borderWidth: 2 }}>
+      {/* User header */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        <Avatar name={user.email} size="md" status={user.deletedAt ? "offline" : undefined} />
+        <View style={{ flex: 1 }}>
+          <AppText variant="label" weight="black" numberOfLines={1}>{user.email}</AppText>
+          <View style={{ flexDirection: "row", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+            <Badge label={cfg.label} color={cfg.color} variant="subtle" size="sm" />
+            {user.deletedAt ? <Badge label="Deleted" color="danger" variant="solid" size="sm" /> : null}
+            {user.organisationId ? (
+              <Badge label={orgNameById.get(user.organisationId) ?? "Org"} color="neutral" variant="subtle" size="sm" />
+            ) : null}
+          </View>
+        </View>
+        <Pressable onPress={onDone} style={{ padding: 6 }}>
+          <MaterialCommunityIcons name="close" size={20} color={colors.textMuted} />
+        </Pressable>
+      </View>
+
+      {/* Section mini-tabs */}
+      <View style={{ flexDirection: "row", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+        {SECTIONS.map((s) => {
+          const active = section === s.key;
+          return (
+            <Pressable
+              key={s.key}
+              onPress={() => setSection(s.key)}
+              style={[
+                styles.sectionPill,
+                {
+                  backgroundColor: active ? colors.primary + "22" : "transparent",
+                  borderColor: active ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <MaterialCommunityIcons name={s.icon as any} size={13} color={active ? colors.primary : colors.textMuted} />
+              <AppText variant="caption" weight="semibold" style={{ color: active ? colors.primary : colors.textMuted }}>
+                {s.label}
+              </AppText>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Info */}
+      {section === "info" && (
+        <View style={{ gap: 8 }}>
+          <InfoRow icon="identifier"     label="User ID"      value={user.id} />
+          <InfoRow icon="calendar"       label="Created"      value={user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"} />
+          <InfoRow icon="office-building" label="Organisation" value={user.organisationId ? (orgNameById.get(user.organisationId) ?? user.organisationId) : "None"} />
+          {user.deletedAt ? <InfoRow icon="delete" label="Deleted at" value={new Date(user.deletedAt).toLocaleDateString()} /> : null}
+          <Divider style={{ marginVertical: 8 }} />
+          <AppButton
+            title={deleting ? "Deleting…" : "Delete this user"}
+            variant="danger"
+            size="sm"
+            loading={deleting}
+            disabled={deleting}
+            icon={<MaterialCommunityIcons name="account-remove" size={15} color="#fff" />}
+            onPress={deleteUser}
+            fullWidth
+          />
+        </View>
+      )}
+
+      {/* Role */}
+      {section === "role" && (
+        <View style={{ gap: 10 }}>
+          <AppText variant="caption" tone="muted">Select new role:</AppText>
+          <RolePicker selected={newRole} onSelect={setNewRole} includeSuper={isSuperAdmin} />
+          {newRole !== user.role && (
+            <AppButton
+              title={savingRole ? "Saving…" : `Set to ${ROLE_CFG[newRole].label}`}
+              variant="primary"
+              size="sm"
+              loading={savingRole}
+              disabled={savingRole}
+              onPress={saveRole}
+              fullWidth
+            />
+          )}
+        </View>
+      )}
+
+      {/* Org */}
+      {section === "org" && (
+        <View style={{ gap: 8 }}>
+          <AppText variant="caption" tone="muted">
+            Current: <AppText variant="caption" weight="semibold">
+              {user.organisationId ? (orgNameById.get(user.organisationId) ?? "Unknown") : "None"}
+            </AppText>
+          </AppText>
+          {user.organisationId && (
+            <AppButton
+              title={savingOrg === "__clear__" ? "Removing…" : "Remove from organisation"}
+              variant="secondary"
+              size="sm"
+              loading={savingOrg === "__clear__"}
+              disabled={savingOrg !== null}
+              onPress={() => assignOrg(null)}
+              fullWidth
+            />
+          )}
+          <Divider label="ASSIGN TO" />
+          {orgs.length === 0 ? (
+            <AppText variant="caption" tone="muted">No organisations yet.</AppText>
+          ) : (
+            orgs.map((o) => (
+              <AppButton
+                key={o.id}
+                title={savingOrg === o.id ? "Assigning…" : o.name}
+                variant={user.organisationId === o.id ? "success" : "secondary"}
+                size="sm"
+                loading={savingOrg === o.id}
+                disabled={savingOrg !== null || user.organisationId === o.id}
+                icon={user.organisationId === o.id ? <MaterialCommunityIcons name="check" size={14} color="#fff" /> : undefined}
+                onPress={() => assignOrg(o.id)}
+                fullWidth
+              />
+            ))
+          )}
+        </View>
+      )}
+
+      {/* Permissions */}
+      {section === "perms" && isSuperAdmin && (
+        loadingPerms ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <View style={{ gap: 8 }}>
+            <AppText variant="caption" tone="muted">Toggle delete permissions for this admin:</AppText>
+            {PERMISSIONS.map((p) => {
+              const enabled = perms.includes(p.value);
+              return (
+                <Pressable key={p.value} onPress={() => togglePerm(p.value)}>
+                  <Card
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      paddingVertical: 10,
+                      paddingHorizontal: 14,
+                      borderColor: enabled ? colors.success : colors.border,
+                      borderWidth: enabled ? 2 : 1,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                      <MaterialCommunityIcons name={p.icon as any} size={18} color={enabled ? colors.success : colors.textMuted} />
+                      <AppText variant="label" weight="semibold" style={{ color: enabled ? colors.success : colors.text }}>
+                        {p.label}
+                      </AppText>
+                    </View>
+                    <Badge label={enabled ? "Granted" : "Denied"} color={enabled ? "success" : "neutral"} variant="subtle" size="sm" />
+                  </Card>
+                </Pressable>
+              );
+            })}
+          </View>
+        )
+      )}
+    </Card>
+  );
+}
+
+// ─── Create User Form ─────────────────────────────────────────────────────────
+
+function CreateUserForm({ session, isSuperAdmin, onCreated }: { session: any; isSuperAdmin: boolean; onCreated: () => Promise<void> }) {
+  const toast = useToast();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<Role>("FACILITATOR");
+  const [creating, setCreating] = useState(false);
+
+  const submit = async () => {
+    if (!email.trim() || !password) { toast.warning("Required fields", "Email and password are required"); return; }
+    if (password.length < 8) { toast.warning("Password too short", "Minimum 8 characters"); return; }
+    setCreating(true);
+    try {
+      await api.post("/admin/users", { email: email.trim(), password, role }, session);
+      toast.success("User created", `${email.trim()} · ${ROLE_CFG[role].label}`);
+      setEmail(""); setPassword(""); setRole("FACILITATOR");
+      await onCreated();
+    } catch (e: any) {
+      toast.error("Create failed", e?.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <View style={{ gap: 12 }}>
+      <AppText variant="caption" tone="muted">Select role:</AppText>
+      <RolePicker selected={role} onSelect={setRole} includeSuper={isSuperAdmin} />
+      <TextField
+        label="Email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        placeholder="user@example.com"
+        leftIcon={<MaterialCommunityIcons name="email-outline" size={18} color="#94A3B8" />}
+      />
+      <TextField
+        label="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        placeholder="Min 8 characters"
+        leftIcon={<MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" />}
+      />
+      <AppButton
+        title={creating ? "Creating…" : "Create user"}
+        loading={creating}
+        disabled={creating}
+        onPress={submit}
+        icon={<MaterialCommunityIcons name="account-plus" size={16} color="#fff" />}
+        fullWidth
+      />
+    </View>
+  );
+}
+
+// ─── Create Org Form ──────────────────────────────────────────────────────────
+
+function CreateOrgForm({ session, onCreated }: { session: any; onCreated: () => Promise<void> }) {
+  const toast = useToast();
+  const [name, setName] = useState("");
+  const [province, setProvince] = useState("");
+  const [city, setCity] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const submit = async () => {
+    if (!name.trim()) { toast.warning("Required", "Organisation name is required"); return; }
+    setCreating(true);
+    try {
+      await api.post("/admin/organisations", { name: name.trim(), province: province.trim() || null, city: city.trim() || null }, session);
+      toast.success("Organisation created", name.trim());
+      setName(""); setProvince(""); setCity("");
+      await onCreated();
+    } catch (e: any) {
+      toast.error("Create failed", e?.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <View style={{ gap: 12 }}>
+      <TextField label="Name" value={name} onChangeText={setName} placeholder="e.g., EduWave SA" />
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        <View style={{ flex: 1 }}><TextField label="Province" value={province} onChangeText={setProvince} placeholder="Optional" /></View>
+        <View style={{ flex: 1 }}><TextField label="City" value={city} onChangeText={setCity} placeholder="Optional" /></View>
+      </View>
+      <AppButton
+        title={creating ? "Creating…" : "Create organisation"}
+        loading={creating}
+        disabled={creating}
+        onPress={submit}
+        icon={<MaterialCommunityIcons name="office-building-plus" size={16} color="#fff" />}
+        fullWidth
+      />
+    </View>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+
 export function AdminDashboardScreen() {
   const { session } = useAuth();
   const { config } = useAccessibility();
   const colors = config.color.colors;
+  const toast = useToast();
 
+  const [tab, setTab] = useState<Tab>("users");
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [organisations, setOrganisations] = useState<Array<{ id: string; name: string }>>([]);
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [newEmail, setNewEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [newRole, setNewRole] = useState<Role>("FACILITATOR");
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  const [orgName, setOrgName] = useState("");
-  const [orgProvince, setOrgProvince] = useState("");
-  const [orgCity, setOrgCity] = useState("");
-  const [creatingOrg, setCreatingOrg] = useState(false);
-  const [orgError, setOrgError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [showCreateOrg, setShowCreateOrg] = useState(false);
 
   const isAdmin = session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN";
   const isSuperAdmin = session?.user.role === "SUPER_ADMIN";
 
-  const [selectedUserPermissions, setSelectedUserPermissions] = useState<AdminPermission[]>([]);
-  const [loadingPermissions, setLoadingPermissions] = useState(false);
-  const [childDeleteId, setChildDeleteId] = useState("");
-
   const loadUsers = useCallback(async () => {
     if (!session) return;
-    setLoading(true);
-    setError(null);
+    setLoadingUsers(true);
     try {
-      const res = await api.get<{ users: AdminUser[] }>("/admin/users", session);
+      const qs = includeDeleted ? "?includeDeleted=true" : "";
+      const res = await api.get<{ users: AdminUser[] }>(`/admin/users${qs}`, session);
       setUsers(res.users);
     } catch (e: any) {
-      setError(e?.message ?? "Failed to load users");
+      toast.error("Failed to load users", e?.message);
     } finally {
-      setLoading(false);
+      setLoadingUsers(false);
     }
-  }, [session]);
-
-  const loadPermissions = useCallback(async () => {
-    if (!session || !isSuperAdmin || !selectedUser) return;
-    setLoadingPermissions(true);
-    setError(null);
-    try {
-      const res = await api.get<{ permissions: Array<{ permission: AdminPermission }> }>(`/admin/users/${selectedUser.id}/permissions`, session);
-      setSelectedUserPermissions(res.permissions.map((p) => p.permission));
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load permissions");
-    } finally {
-      setLoadingPermissions(false);
-    }
-  }, [isSuperAdmin, selectedUser, session]);
+  }, [session, includeDeleted, toast]);
 
   const loadOrgs = useCallback(async () => {
     if (!session) return;
+    setLoadingOrgs(true);
     try {
-      const res = await api.get<{ organisations: Array<{ id: string; name: string }> }>("/admin/organisations", session);
-      setOrganisations(res.organisations);
+      const res = await api.get<{ organisations: Org[] }>("/admin/organisations", session);
+      setOrgs(res.organisations);
     } catch (e: any) {
-      setOrgError(e?.message ?? "Failed to load organisations");
+      toast.error("Failed to load organisations", e?.message);
+    } finally {
+      setLoadingOrgs(false);
     }
-  }, [session]);
+  }, [session, toast]);
 
-  useEffect(() => {
-    loadUsers().catch(() => {});
-    loadOrgs().catch(() => {});
-  }, [loadUsers]);
+  useEffect(() => { void loadUsers(); }, [loadUsers]);
+  useEffect(() => { void loadOrgs(); }, [loadOrgs]);
 
-  useEffect(() => {
-    loadPermissions().catch(() => {});
-  }, [loadPermissions]);
+  const orgNameById = useMemo(() => new Map(orgs.map((o) => [o.id, o.name])), [orgs]);
 
-  const facilitators = useMemo(() => users.filter((u) => u.role === "FACILITATOR"), [users]);
-  const trainers = useMemo(() => users.filter((u) => u.role === "TRAINER_SUPERVISOR"), [users]);
-  const orgAdmins = useMemo(() => users.filter((u) => u.role === "ORG_ADMIN"), [users]);
-  const admins = useMemo(() => users.filter((u) => u.role === "ADMIN" || u.role === "SUPER_ADMIN"), [users]);
+  const filteredUsers = useMemo(() => {
+    if (!search.trim()) return users;
+    const q = search.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.email.toLowerCase().includes(q) ||
+        u.role.toLowerCase().includes(q) ||
+        (u.organisationId && (orgNameById.get(u.organisationId) ?? "").toLowerCase().includes(q))
+    );
+  }, [users, search, orgNameById]);
 
-  const orgNameById = useMemo(() => new Map(organisations.map((o) => [o.id, o.name])), [organisations]);
+  const grouped = useMemo(() => {
+    return ROLE_ORDER.flatMap((role) => {
+      const list = filteredUsers.filter((u) => u.role === role);
+      return list.length ? [{ role, users: list }] : [];
+    });
+  }, [filteredUsers]);
+
+  const stats = useMemo(() => ({
+    total: users.filter((u) => !u.deletedAt).length,
+    facilitators: users.filter((u) => u.role === "FACILITATOR" && !u.deletedAt).length,
+    orgsCount: orgs.length,
+  }), [users, orgs]);
 
   if (!isAdmin) {
     return (
       <ScrollScreen>
-        <Card>
-          <AppText variant="body" weight="black">
-            Admin only
-          </AppText>
-          <AppText variant="body" tone="muted" style={{ marginTop: 8 }}>
-            Sign in with an admin account to manage facilitators.
-          </AppText>
-        </Card>
+        <EmptyState title="Admin only" message="This area is restricted to Admin and Super Admin accounts." />
       </ScrollScreen>
     );
   }
 
   return (
     <ScrollScreen>
-      <View style={{ gap: 16 }}>
-        <ScreenHeader title="Admin" subtitle="Manage users and facilitators" />
+      {/* ── Gradient header ── */}
+      <LinearGradient colors={["#0E7490", "#164E63"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 }}>
+          <MaterialCommunityIcons name="shield-crown" size={22} color="#E0F2FE" />
+          <AppText variant="h2" weight="black" tone="white">Admin Dashboard</AppText>
+        </View>
+        <AppText variant="caption" style={{ color: "#BAE6FD", marginBottom: 16 }}>
+          {isSuperAdmin ? "Super Admin · Full access" : "Admin · User & org management"}
+        </AppText>
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <StatCard icon="account-group"  label="Active Users"   value={stats.total}       color="#38BDF8" />
+          <StatCard icon="account-heart"  label="Facilitators"   value={stats.facilitators} color="#A78BFA" />
+          <StatCard icon="office-building" label="Organisations"  value={stats.orgsCount}   color="#34D399" />
+        </View>
+      </LinearGradient>
 
-        <Card>
-          <AppText variant="h3">Create user</AppText>
-          <View style={{ marginTop: 12, gap: 12 }}>
-            <AppText variant="label" weight="black">
-              Role
-            </AppText>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-              {(
-                [
-                  { value: "FACILITATOR", label: "Facilitator / Nanny" },
-                  { value: "TRAINER_SUPERVISOR", label: "Trainer / Supervisor" },
-                  { value: "ORG_ADMIN", label: "Organisation Admin" }
-                ] as const
-              ).map((r) => {
-                const selected = newRole === r.value;
-                return (
-                  <Pressable
-                    key={r.value}
-                    onPress={() => setNewRole(r.value)}
-                    style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
-                  >
-                    <Card
-                    style={{
-                      borderColor: selected ? colors.primary : colors.border,
-                      borderWidth: selected ? 2 : 1,
-                      backgroundColor: selected ? colors.surface : colors.surfaceAlt
-                    }}
-                  >
-                      <AppText variant="label" weight="black" style={{ color: selected ? colors.primary : colors.text }}>
-                        {r.label}
-                      </AppText>
-                    </Card>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <TextField label="Email" value={newEmail} onChangeText={setNewEmail} autoCapitalize="none" placeholder="facilitator@example.com" />
-            <TextField label="Password" value={newPassword} onChangeText={setNewPassword} secureTextEntry placeholder="Minimum 8 characters" />
-            {createError ? <InlineAlert tone="danger" text={createError} /> : null}
-            <AppButton
-              title={creating ? "Creating..." : "Create user"}
-              loading={creating}
-              disabled={creating}
-              onPress={async () => {
-                if (!session) return;
-                setCreating(true);
-                setCreateError(null);
-                try {
-                  await api.post("/admin/users", { email: newEmail.trim(), password: newPassword, role: newRole }, session);
-                  setNewEmail("");
-                  setNewPassword("");
-                  setNewRole("FACILITATOR");
-                  await loadUsers();
-                } catch (e: any) {
-                  setCreateError(e?.message ?? "Failed to create user");
-                } finally {
-                  setCreating(false);
-                }
-              }}
-            />
-          </View>
-        </Card>
+      {/* ── Tabs ── */}
+      <AdminTabBar active={tab} onChange={(t) => { setTab(t); setSelectedUser(null); }} />
 
-        <Card>
-          <AppText variant="h3">Organisations</AppText>
-          <AppText variant="caption" tone="muted" style={{ marginTop: 6 }}>
-            Create organisations and assign users to them.
-          </AppText>
+      {/* ══ USERS TAB ══ */}
+      {tab === "users" && (
+        <FadeInView key="users-tab">
+          <View style={{ gap: 12 }}>
 
-          <View style={{ marginTop: 12, gap: 12 }}>
-            <TextField label="Organisation name" value={orgName} onChangeText={setOrgName} placeholder="e.g., EduWave SA" />
-            <View style={{ flexDirection: "row", gap: 12 }}>
+            {/* Search + refresh */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <View style={{ flex: 1 }}>
-                <TextField label="Province (optional)" value={orgProvince} onChangeText={setOrgProvince} placeholder="e.g., Gauteng" />
+                <SearchBar value={search} onChange={setSearch} />
               </View>
-              <View style={{ flex: 1 }}>
-                <TextField label="City (optional)" value={orgCity} onChangeText={setOrgCity} placeholder="e.g., Johannesburg" />
-              </View>
+              <AppButton
+                title=""
+                variant="ghost"
+                size="sm"
+                loading={loadingUsers}
+                icon={<MaterialCommunityIcons name="refresh" size={18} color={colors.textMuted} />}
+                onPress={() => void loadUsers()}
+              />
             </View>
-            {orgError ? <InlineAlert tone="danger" text={orgError} /> : null}
-            <AppButton
-              title={creatingOrg ? "Creating..." : "Create organisation"}
-              loading={creatingOrg}
-              disabled={creatingOrg}
-              onPress={async () => {
-                if (!session) return;
-                if (!orgName.trim()) {
-                  setOrgError("Organisation name is required");
-                  return;
-                }
-                setCreatingOrg(true);
-                setOrgError(null);
-                try {
-                  await api.post(
-                    "/admin/organisations",
-                    { name: orgName.trim(), province: orgProvince.trim() || null, city: orgCity.trim() || null },
-                    session
-                  );
-                  setOrgName("");
-                  setOrgProvince("");
-                  setOrgCity("");
-                  await loadOrgs();
-                } catch (e: any) {
-                  setOrgError(e?.message ?? "Failed to create organisation");
-                } finally {
-                  setCreatingOrg(false);
-                }
-              }}
-            />
-          </View>
 
-          <View style={{ marginTop: 16, gap: 12 }}>
-            {selectedUser ? (
-              <Card style={{ backgroundColor: colors.surfaceAlt }}>
-                <AppText variant="label" weight="black">Assign organisation</AppText>
-                <AppText variant="body" weight="bold" style={{ marginTop: 6 }}>{selectedUser.email}</AppText>
-                <AppText variant="caption" tone="muted" style={{ marginTop: 4 }}>{selectedUser.id}</AppText>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
-                  <AppButton
-                    title="Clear org"
-                    variant="secondary"
-                    onPress={async () => {
-                      if (!session) return;
-                      await api.patch(`/admin/users/${selectedUser.id}/organisation`, { organisationId: null }, session);
-                      setSelectedUser(null);
-                      await loadUsers();
-                    }}
-                  />
-                  <AppButton title="Done" variant="ghost" onPress={() => setSelectedUser(null)} />
-                </View>
-                <View style={{ gap: 8, marginTop: 12 }}>
-                  {organisations.map((o) => (
-                    <AppButton
-                      key={o.id}
-                      title={o.name}
-                      variant="secondary"
-                      onPress={async () => {
-                        if (!session) return;
-                        await api.patch(`/admin/users/${selectedUser.id}/organisation`, { organisationId: o.id }, session);
-                        setSelectedUser(null);
-                        await loadUsers();
-                      }}
-                    />
-                  ))}
-                </View>
-              </Card>
-            ) : (
-              <Card style={{ backgroundColor: colors.surfaceAlt }}>
-                <AppText variant="body" tone="muted">Select a user below to assign an organisation.</AppText>
-              </Card>
-            )}
-          </View>
-        </Card>
-
-        <Card>
-          <AppText variant="h3">Delete</AppText>
-          <AppText variant="caption" tone="muted" style={{ marginTop: 6 }}>Super admin can grant delete rights to specific admins.</AppText>
-
-          <View style={{ marginTop: 12, gap: 12 }}>
-            {selectedUser ? (
-              <>
-                <AppText variant="label" weight="black">Selected user</AppText>
-                <AppText variant="body" weight="bold">{selectedUser.email}</AppText>
-                <AppText variant="caption" tone="muted">{selectedUser.id}</AppText>
-
-                {isSuperAdmin ? (
-                  <View style={{ gap: 8, marginTop: 8 }}>
-                    <AppText variant="label" weight="black">
-                      Delete permissions {loadingPermissions ? "(loading...)" : ""}
-                    </AppText>
-                    {(
-                      [
-                        { permission: "DELETE_USERS" as const, label: "Can delete users" },
-                        { permission: "DELETE_CHILDREN" as const, label: "Can delete children" }
-                      ] as const
-                    ).map((p) => {
-                      const enabled = selectedUserPermissions.includes(p.permission);
-                      return (
-                        <Pressable
-                          key={p.permission}
-                          onPress={async () => {
-                            if (!session) return;
-                            setError(null);
-                            try {
-                              if (enabled) {
-                                await api.post("/admin/permissions/revoke", { userId: selectedUser.id, permission: p.permission }, session);
-                              } else {
-                                await api.post("/admin/permissions/grant", { userId: selectedUser.id, permission: p.permission }, session);
-                              }
-                              await loadPermissions();
-                            } catch (e: any) {
-                              setError(e?.message ?? "Failed to update permission");
-                            }
-                          }}
-                          style={({ pressed }) => [{ opacity: pressed ? config.motion.pressFeedbackOpacity : 1 }]}
-                        >
-                          <Card
-                            style={{
-                              borderColor: enabled ? colors.primary : colors.border,
-                              borderWidth: enabled ? 2 : 1,
-                              backgroundColor: enabled ? colors.surface : colors.surfaceAlt
-                            }}
-                          >
-                            <AppText variant="label" weight="black" style={{ color: enabled ? colors.primary : colors.text }}>
-                              {p.label}: {enabled ? "Yes" : "No"}
-                            </AppText>
-                          </Card>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : null}
-
-                <AppButton
-                  title="Delete selected user"
-                  variant="secondary"
-                  onPress={async () => {
-                    if (!session || !selectedUser) return;
-                    setError(null);
-                    try {
-                      await api.del(`/users/${selectedUser.id}`, session);
-                      setSelectedUser(null);
-                      await loadUsers();
-                    } catch (e: any) {
-                      setError(e?.message ?? "Failed to delete user");
-                    }
-                  }}
+            {/* Filter chips */}
+            <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+              <Pressable
+                onPress={() => setIncludeDeleted((v) => !v)}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: includeDeleted ? colors.danger + "22" : colors.surfaceAlt,
+                    borderColor: includeDeleted ? colors.danger : colors.border,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={includeDeleted ? "eye" : "eye-off-outline"}
+                  size={14}
+                  color={includeDeleted ? colors.danger : colors.textMuted}
                 />
-              </>
-            ) : (
-              <AppText variant="body" tone="muted">Select a user to manage delete permissions and deletion.</AppText>
+                <AppText variant="caption" weight="semibold" style={{ color: includeDeleted ? colors.danger : colors.textMuted }}>
+                  {includeDeleted ? "Showing deleted" : "Hide deleted"}
+                </AppText>
+              </Pressable>
+
+              <Pressable
+                onPress={() => { setShowCreateUser((v) => !v); setSelectedUser(null); }}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: showCreateUser ? colors.primary + "22" : colors.surfaceAlt,
+                    borderColor: showCreateUser ? colors.primary : colors.border,
+                  },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={showCreateUser ? "close" : "account-plus"}
+                  size={14}
+                  color={showCreateUser ? colors.primary : colors.textMuted}
+                />
+                <AppText variant="caption" weight="semibold" style={{ color: showCreateUser ? colors.primary : colors.textMuted }}>
+                  {showCreateUser ? "Cancel" : "Create user"}
+                </AppText>
+              </Pressable>
+            </View>
+
+            {/* Create user form */}
+            {showCreateUser && (
+              <FadeInView>
+                <Card variant="outlined" style={{ borderColor: colors.primary, borderWidth: 2 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                    <MaterialCommunityIcons name="account-plus-outline" size={18} color={colors.primary} />
+                    <AppText variant="body" weight="black">New User</AppText>
+                  </View>
+                  <CreateUserForm
+                    session={session}
+                    isSuperAdmin={isSuperAdmin}
+                    onCreated={async () => { setShowCreateUser(false); await loadUsers(); }}
+                  />
+                </Card>
+              </FadeInView>
             )}
 
-            <TextField label="Delete child by ID" value={childDeleteId} onChangeText={setChildDeleteId} placeholder="Paste childId" />
-            <AppButton
-              title="Delete child"
-              variant="secondary"
-              onPress={async () => {
-                if (!session) return;
-                if (!childDeleteId.trim()) {
-                  setError("Child ID is required");
-                  return;
-                }
-                setError(null);
-                try {
-                  await api.del(`/children/${childDeleteId.trim()}`, session);
-                  setChildDeleteId("");
-                } catch (e: any) {
-                  setError(e?.message ?? "Failed to delete child");
-                }
-              }}
-            />
+            {/* Selected user panel */}
+            {selectedUser && (
+              <FadeInView>
+                <UserManagementPanel
+                  user={selectedUser}
+                  orgs={orgs}
+                  orgNameById={orgNameById}
+                  isSuperAdmin={isSuperAdmin}
+                  session={session}
+                  onDone={() => setSelectedUser(null)}
+                  onRefresh={loadUsers}
+                />
+              </FadeInView>
+            )}
+
+            {/* User list */}
+            {loadingUsers && users.length === 0 ? (
+              <Card><View style={{ gap: 8 }}>{[1, 2, 3, 4].map((i) => <SkeletonListItem key={i} />)}</View></Card>
+            ) : filteredUsers.length === 0 ? (
+              <EmptyState
+                title={search ? "No results" : "No users"}
+                message={search ? `No users match "${search}"` : "No users found"}
+              />
+            ) : (
+              <Card>
+                <View style={{ gap: 16 }}>
+                  {grouped.map(({ role, users: groupUsers }, idx) => {
+                    const cfg = ROLE_CFG[role];
+                    return (
+                      <View key={role}>
+                        {idx > 0 && <Divider style={{ marginBottom: 12 }} />}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <MaterialCommunityIcons name={cfg.icon as any} size={14} color={colors.textMuted} />
+                          <AppText variant="caption" weight="black" tone="muted">{cfg.label.toUpperCase()}</AppText>
+                          <Badge label={String(groupUsers.length)} color={cfg.color} variant="subtle" size="sm" />
+                        </View>
+                        {groupUsers.map((u) => (
+                          <ListItem
+                            key={u.id}
+                            title={u.email}
+                            subtitle={
+                              u.organisationId
+                                ? (orgNameById.get(u.organisationId) ?? "Organisation")
+                                : "No organisation"
+                            }
+                            selected={selectedUser?.id === u.id}
+                            onPress={() => setSelectedUser(selectedUser?.id === u.id ? null : u)}
+                            leftContent={<Avatar name={u.email} size="sm" status={u.deletedAt ? "offline" : undefined} />}
+                            rightContent={
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                                {u.deletedAt ? <Badge label="Deleted" color="danger" variant="subtle" size="sm" /> : null}
+                                <MaterialCommunityIcons
+                                  name={selectedUser?.id === u.id ? "chevron-up" : "chevron-down"}
+                                  size={18}
+                                  color={colors.textMuted}
+                                />
+                              </View>
+                            }
+                            showChevron={false}
+                          />
+                        ))}
+                      </View>
+                    );
+                  })}
+                </View>
+              </Card>
+            )}
           </View>
-        </Card>
+        </FadeInView>
+      )}
 
-        {error ? <InlineAlert tone="danger" text={error} /> : null}
+      {/* ══ ORGS TAB ══ */}
+      {tab === "orgs" && (
+        <FadeInView key="orgs-tab">
+          <View style={{ gap: 12 }}>
+            <Pressable
+              onPress={() => setShowCreateOrg((v) => !v)}
+              style={[
+                styles.chip,
+                {
+                  alignSelf: "flex-start",
+                  backgroundColor: showCreateOrg ? colors.primary + "22" : colors.surfaceAlt,
+                  borderColor: showCreateOrg ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={showCreateOrg ? "close" : "office-building-plus"}
+                size={14}
+                color={showCreateOrg ? colors.primary : colors.textMuted}
+              />
+              <AppText variant="caption" weight="semibold" style={{ color: showCreateOrg ? colors.primary : colors.textMuted }}>
+                {showCreateOrg ? "Cancel" : "New organisation"}
+              </AppText>
+            </Pressable>
 
-        <Card>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <AppText variant="h3">Users</AppText>
-            <View style={{ width: 120 }}>
-              <AppButton title={loading ? "Refreshing..." : "Refresh"} variant="secondary" onPress={loadUsers} />
-            </View>
+            {showCreateOrg && (
+              <FadeInView>
+                <Card variant="outlined" style={{ borderColor: colors.primary, borderWidth: 2 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                    <MaterialCommunityIcons name="office-building-plus" size={18} color={colors.primary} />
+                    <AppText variant="body" weight="black">New Organisation</AppText>
+                  </View>
+                  <CreateOrgForm
+                    session={session}
+                    onCreated={async () => { setShowCreateOrg(false); await loadOrgs(); }}
+                  />
+                </Card>
+              </FadeInView>
+            )}
+
+            {loadingOrgs && orgs.length === 0 ? (
+              <Card><View style={{ gap: 8 }}>{[1, 2].map((i) => <SkeletonListItem key={i} />)}</View></Card>
+            ) : orgs.length === 0 ? (
+              <EmptyState title="No organisations" message="Create your first organisation above." />
+            ) : (
+              <View style={{ gap: 8 }}>
+                {orgs.map((o) => {
+                  const memberCount = users.filter((u) => u.organisationId === o.id && !u.deletedAt).length;
+                  return (
+                    <Card key={o.id} variant="elevated" elevation="sm">
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                        <View style={[styles.orgIcon, { backgroundColor: colors.info + "22" }]}>
+                          <MaterialCommunityIcons name="office-building" size={22} color={colors.info} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <AppText variant="body" weight="black">{o.name}</AppText>
+                          {(o.province || o.city) ? (
+                            <AppText variant="caption" tone="muted">
+                              {[o.city, o.province].filter(Boolean).join(", ")}
+                            </AppText>
+                          ) : null}
+                          {o.createdAt ? (
+                            <AppText variant="caption" tone="muted">
+                              Created {new Date(o.createdAt).toLocaleDateString()}
+                            </AppText>
+                          ) : null}
+                        </View>
+                        <Badge
+                          label={`${memberCount} member${memberCount !== 1 ? "s" : ""}`}
+                          color="primary"
+                          variant="subtle"
+                          size="sm"
+                        />
+                      </View>
+                    </Card>
+                  );
+                })}
+              </View>
+            )}
           </View>
-
-          <View style={{ marginTop: 16, gap: 12 }}>
-            <AppText variant="label" weight="black">Admins</AppText>
-            <FlatList
-              data={admins}
-              scrollEnabled={false}
-              keyExtractor={(u) => u.id}
-              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-              renderItem={({ item }) => (
-                <Pressable onPress={() => setSelectedUser(item)} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
-                  <Card style={{ backgroundColor: colors.surfaceAlt }}>
-                    <AppText variant="body" weight="black">{item.email}</AppText>
-                    <AppText variant="caption" tone="muted" style={{ marginTop: 6 }}>
-                      {item.role}
-                      {item.organisationId ? ` · ${orgNameById.get(item.organisationId) ?? item.organisationId}` : ""}
-                    </AppText>
-                  </Card>
-                </Pressable>
-              )}
-            />
-
-            <AppText variant="label" weight="black">Facilitators</AppText>
-            <FlatList
-              data={facilitators}
-              scrollEnabled={false}
-              keyExtractor={(u) => u.id}
-              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-              renderItem={({ item }) => (
-                <Pressable onPress={() => setSelectedUser(item)} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
-                  <Card style={{ backgroundColor: colors.surfaceAlt }}>
-                    <AppText variant="body" weight="black">{item.email}</AppText>
-                    <AppText variant="caption" tone="muted" style={{ marginTop: 6 }}>
-                      {item.id}
-                      {item.organisationId ? ` · ${orgNameById.get(item.organisationId) ?? item.organisationId}` : ""}
-                    </AppText>
-                  </Card>
-                </Pressable>
-              )}
-            />
-
-            <AppText variant="label" weight="black">Trainers / Supervisors</AppText>
-            <FlatList
-              data={trainers}
-              scrollEnabled={false}
-              keyExtractor={(u) => u.id}
-              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-              renderItem={({ item }) => (
-                <Pressable onPress={() => setSelectedUser(item)} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
-                  <Card style={{ backgroundColor: colors.surfaceAlt }}>
-                    <AppText variant="body" weight="black">{item.email}</AppText>
-                    <AppText variant="caption" tone="muted" style={{ marginTop: 6 }}>
-                      {item.id}
-                      {item.organisationId ? ` · ${orgNameById.get(item.organisationId) ?? item.organisationId}` : ""}
-                    </AppText>
-                  </Card>
-                </Pressable>
-              )}
-            />
-
-            <AppText variant="label" weight="black">Organisation Admins</AppText>
-            <FlatList
-              data={orgAdmins}
-              scrollEnabled={false}
-              keyExtractor={(u) => u.id}
-              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-              renderItem={({ item }) => (
-                <Pressable onPress={() => setSelectedUser(item)} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
-                  <Card style={{ backgroundColor: colors.surfaceAlt }}>
-                    <AppText variant="body" weight="black">{item.email}</AppText>
-                    <AppText variant="caption" tone="muted" style={{ marginTop: 6 }}>
-                      {item.id}
-                      {item.organisationId ? ` · ${orgNameById.get(item.organisationId) ?? item.organisationId}` : ""}
-                    </AppText>
-                  </Card>
-                </Pressable>
-              )}
-            />
-          </View>
-        </Card>
-      </View>
+        </FadeInView>
+      )}
     </ScrollScreen>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  header: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 4,
+  },
+  tabBar: {
+    flexDirection: "row",
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 4,
+    gap: 4,
+  },
+  tabItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+  },
+  statCard: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    alignItems: "center",
+    gap: 3,
+  },
+  sectionPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  rolePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    padding: 0,
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  orgIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

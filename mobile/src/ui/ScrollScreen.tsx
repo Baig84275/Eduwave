@@ -2,6 +2,7 @@ import React from "react";
 import { ScrollView, StyleProp, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { tokens } from "../theme/tokens";
 
 export function ScrollScreen({
   children,
@@ -17,7 +18,15 @@ export function ScrollScreen({
 
   return (
     <SafeAreaView style={[{ flex: 1, backgroundColor: colors.background }, style]}>
-      <ScrollView contentContainerStyle={{ padding, gap, paddingBottom: padding }}>
+      <ScrollView
+        contentContainerStyle={{
+          padding,
+          gap,
+          // Extra bottom padding so content clears the absolute-positioned tab bar
+          paddingBottom: padding + tokens.components.tabBar.height,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
         {children}
       </ScrollView>
     </SafeAreaView>

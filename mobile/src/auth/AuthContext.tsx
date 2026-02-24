@@ -10,7 +10,8 @@ type AuthContextValue = {
     email: string,
     password: string,
     role?: "PARENT" | "FACILITATOR" | "TEACHER" | "THERAPIST",
-    invitationToken?: string
+    invitationToken?: string,
+    organisationId?: string
   ) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (patch: Partial<User>) => Promise<void>;
@@ -54,8 +55,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const register = useCallback(
-    async (email: string, password: string, role?: "PARENT" | "FACILITATOR" | "TEACHER" | "THERAPIST", invitationToken?: string) => {
-      const res = await api.post<{ accessToken: string; user: User }>("/auth/register", { email, password, role, invitationToken });
+    async (email: string, password: string, role?: "PARENT" | "FACILITATOR" | "TEACHER" | "THERAPIST", invitationToken?: string, organisationId?: string) => {
+      const res = await api.post<{ accessToken: string; user: User }>("/auth/register", {
+        email,
+        password,
+        role,
+        invitationToken,
+        ...(organisationId ? { organisationId } : {})
+      });
       const next: AuthSession = { accessToken: res.accessToken, user: res.user };
       setSession(next);
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));

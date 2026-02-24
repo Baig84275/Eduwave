@@ -14,7 +14,8 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   role: z.enum([Role.PARENT, Role.FACILITATOR, Role.TEACHER, Role.THERAPIST]).optional(),
-  invitationToken: z.string().min(1).optional()
+  invitationToken: z.string().min(1).optional(),
+  organisationId: z.string().cuid().optional()
 });
 
 authRouter.post(
@@ -40,11 +41,20 @@ authRouter.post(
       role = invitation.inviteeRole;
     }
 
+    if (body.organisationId) {
+      const org = await prisma.organisation.findUnique({
+        where: { id: body.organisationId },
+        select: { id: true }
+      });
+      if (!org) return res.status(400).json({ error: "Organisation not found" });
+    }
+
     const user = await prisma.user.create({
       data: {
         email: body.email.toLowerCase(),
         passwordHash,
-        role
+        role,
+        ...(body.organisationId ? { organisationId: body.organisationId } : {})
       },
       select: {
         id: true,
