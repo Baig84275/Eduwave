@@ -9,6 +9,9 @@
   "overrides": {
     "@types/react": "19.1.10"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "workspaces": [
     "backend",
     "mobile"
@@ -18,6 +21,7 @@
     "dev:mobile": "npm --workspace mobile run start",
     "test": "npm --workspace backend test",
     "lint": "npm --workspace backend run lint && npm --workspace mobile run lint",
-    "postinstall": "npm --workspace backend run prisma:generate"
+    "postinstall": "npm --workspace backend run prisma:generate",
+    "build": "npm --workspace backend run build"
   }
 }
