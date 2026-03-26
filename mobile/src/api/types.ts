@@ -203,6 +203,20 @@ export type TrainingCourse = {
   active: boolean;
 };
 
+export type TrainingModuleFull = {
+  id: string;
+  courseId: string;
+  moduleName: string;
+  lmsUrl: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TrainingCourseWithModules = {
+  course: TrainingCourse & { learnworldsUrl: string };
+  modules: TrainingModuleFull[];
+};
+
 export type MyTrainingCourse = {
   course: TrainingCourse;
   modules: Array<{

@@ -122,6 +122,25 @@ export function TrainingHubScreen({ navigation }: Props) {
             />
           </View>
 
+          {/* Admin / trainer management actions */}
+          {(session?.user.role === "TRAINER_SUPERVISOR" || session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN") && (
+            <View style={{ gap: 8 }}>
+              <Divider label="COURSE MANAGEMENT" />
+              <AppButton
+                title="Manage Courses"
+                variant="secondary"
+                icon={<MaterialCommunityIcons name="school-outline" size={18} color={colors.textMuted} />}
+                onPress={() => navigation.navigate("ManageCourses")}
+              />
+              <AppButton
+                title="Assign Training"
+                variant="secondary"
+                icon={<MaterialCommunityIcons name="account-arrow-right-outline" size={18} color={colors.textMuted} />}
+                onPress={() => navigation.navigate("AssignTraining")}
+              />
+            </View>
+          )}
+
           <Divider label={loading ? "LOADING..." : `${modules.length} MODULES`} />
 
           {/* Module list */}

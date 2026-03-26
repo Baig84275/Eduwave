@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { ProfileStackParamList } from "../navigation/stacks/ProfileStack";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "../api/client";
@@ -560,6 +563,7 @@ export function AdminDashboardScreen() {
   const { config } = useAccessibility();
   const colors = config.color.colors;
   const toast = useToast();
+  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 
   const [tab, setTab] = useState<Tab>("users");
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -655,6 +659,25 @@ export function AdminDashboardScreen() {
           <StatCard icon="account-heart"  label="Facilitators"   value={stats.facilitators} color="#A78BFA" />
           <StatCard icon="office-building" label="Organisations"  value={stats.orgsCount}   color="#34D399" />
         </View>
+        <Pressable
+          onPress={() => navigation.navigate("ManageCourses")}
+          style={({ pressed }) => [{
+            marginTop: 12,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            backgroundColor: "rgba(255,255,255,0.15)",
+            borderRadius: 10,
+            paddingVertical: 10,
+            paddingHorizontal: 16,
+            opacity: pressed ? 0.8 : 1
+          }]}
+        >
+          <MaterialCommunityIcons name="school-outline" size={18} color="#E0F2FE" />
+          <AppText variant="label" weight="semibold" style={{ color: "#E0F2FE" }}>Manage Training Courses</AppText>
+          <MaterialCommunityIcons name="chevron-right" size={18} color="#E0F2FE" />
+        </Pressable>
       </LinearGradient>
 
       {/* ── Tabs ── */}
