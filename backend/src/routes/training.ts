@@ -63,7 +63,7 @@ const createCourseSchema = z.object({
   title: z.string().min(1).max(200),
   levelNumber: z.number().int().min(1),
   description: z.string().max(1000).optional().nullable(),
-  learnworldsUrl: z.string().url()
+  learnworldsUrl: z.string().min(1).optional().nullable()
 });
 
 trainingRouter.post(
@@ -76,7 +76,7 @@ trainingRouter.post(
         title: body.title,
         levelNumber: body.levelNumber,
         description: body.description ?? null,
-        learnworldsUrl: body.learnworldsUrl,
+        learnworldsUrl: body.learnworldsUrl ?? "",
         active: true
       },
       select: { id: true, title: true, levelNumber: true, description: true, learnworldsUrl: true, active: true, createdAt: true, updatedAt: true }
@@ -98,7 +98,7 @@ const updateCourseSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   levelNumber: z.number().int().min(1).optional(),
   description: z.string().max(1000).optional().nullable(),
-  learnworldsUrl: z.string().url().optional(),
+  learnworldsUrl: z.string().min(1).optional(),
   active: z.boolean().optional()
 });
 
