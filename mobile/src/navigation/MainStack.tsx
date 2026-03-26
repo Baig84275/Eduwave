@@ -70,7 +70,8 @@ export function MainStack() {
         headerStyle: { backgroundColor: colors.surface },
         headerShadowVisible: false,
         headerTintColor: colors.primary,
-        headerTitleStyle: { color: colors.text }
+        headerTitleStyle: { color: colors.text, fontWeight: "600" },
+        contentStyle: { backgroundColor: colors.background },
       }}
     >
       <Stack.Screen name="Children" component={ChildListScreen} options={{ headerShown: false }} />

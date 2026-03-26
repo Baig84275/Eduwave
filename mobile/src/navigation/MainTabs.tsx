@@ -51,6 +51,7 @@ export function MainTabs() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
+        sceneStyle: { backgroundColor: colors.background },
       }}
     >
       {canSeeTab("HomeTab") && (
