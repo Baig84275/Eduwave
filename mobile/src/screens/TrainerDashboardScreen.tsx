@@ -194,6 +194,11 @@ export function TrainerDashboardScreen({ navigation }: Props) {
               <AppButton title="Back" variant="secondary" onPress={() => navigation.goBack()} />
             </View>
           </View>
+          <AppButton
+            title="Manage Courses"
+            variant="secondary"
+            onPress={() => navigation.navigate("ManageCourses")}
+          />
           
           <AppButton
             title={exporting ? "Preparing PDF..." : `Open Q${quarter} PDF`}
