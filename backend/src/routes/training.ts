@@ -164,6 +164,43 @@ trainingRouter.get(
 );
 
 trainingRouter.delete(
+  "/courses/:courseId",
+  requireRole(Role.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const courseId = req.params.courseId;
+    const existing = await prisma.trainingCourse.findUnique({
+      where: { id: courseId },
+      select: { id: true, title: true }
+    });
+    if (!existing) return res.status(404).json({ error: "Course not found" });
+
+    // Delete modules, assignments, completions, then the course (cascade via Prisma)
+    await prisma.$transaction([
+      prisma.trainingCompletion.deleteMany({
+        where: { module: { courseId } }
+      }),
+      prisma.trainingAssignment.deleteMany({
+        where: { module: { courseId } }
+      }),
+      prisma.trainingModule.deleteMany({ where: { courseId } }),
+      prisma.trainingCourse.delete({ where: { id: courseId } })
+    ]);
+
+    await writeAuditEvent({
+      prisma,
+      req,
+      actor: req.user!,
+      action: "training.course.delete",
+      entityType: "TrainingCourse",
+      entityId: courseId,
+      metadata: { title: existing.title }
+    });
+
+    res.json({ ok: true });
+  })
+);
+
+trainingRouter.delete(
   "/modules/:moduleId",
   requireRole(Role.ADMIN, Role.SUPER_ADMIN),
   asyncHandler(async (req, res) => {
