@@ -27,9 +27,15 @@ async function request<T>(
   const json = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    // Auth errors
-    if (res.status === 401) throw new Error("Your session has expired. Please log in again.");
-    if (res.status === 403) throw new Error("You don't have permission to perform this action.");
+    // Auth errors — use backend message if available, else fall back to generic
+    if (res.status === 401) {
+      const msg = typeof json?.error === "string" ? json.error : "Your session has expired. Please log in again.";
+      throw new Error(msg);
+    }
+    if (res.status === 403) {
+      const msg = typeof json?.error === "string" ? json.error : "You don't have permission to perform this action.";
+      throw new Error(msg);
+    }
 
     // Zod validation error — extract the first specific field message
     if (Array.isArray(json?.details) && json.details.length > 0) {
