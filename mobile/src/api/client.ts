@@ -8,20 +8,50 @@ async function request<T>(
   session?: AuthSession | null
 ): Promise<T> {
   const url = `${getApiBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
-  const res = await fetch(url, {
-    method,
-    headers: {
-      "ngrok-skip-browser-warning": "true",
-      ...(method === "DELETE" && !body ? {} : { "content-type": "application/json" }),
-      ...(session ? { authorization: `Bearer ${session.accessToken}` } : {})
-    },
-    body: body ? JSON.stringify(body) : undefined
-  });
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        "ngrok-skip-browser-warning": "true",
+        ...(method === "DELETE" && !body ? {} : { "content-type": "application/json" }),
+        ...(session ? { authorization: `Bearer ${session.accessToken}` } : {})
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+  } catch {
+    throw new Error("No internet connection. Please check your network and try again.");
+  }
+
   const json = await res.json().catch(() => ({}));
+
   if (!res.ok) {
-    const message = typeof json?.error === "string" ? json.error : "Request failed";
+    // Auth errors
+    if (res.status === 401) throw new Error("Your session has expired. Please log in again.");
+    if (res.status === 403) throw new Error("You don't have permission to perform this action.");
+
+    // Zod validation error — extract the first specific field message
+    if (Array.isArray(json?.details) && json.details.length > 0) {
+      const first = json.details[0];
+      const field = Array.isArray(first?.path) && first.path.length > 0
+        ? String(first.path[first.path.length - 1])
+            .replace(/([A-Z])/g, " $1")
+            .replace(/^./, (s) => s.toUpperCase())
+            .trim()
+        : null;
+      const msg: string = typeof first?.message === "string" ? first.message : "Invalid input";
+      throw new Error(field ? `${field}: ${msg}` : msg);
+    }
+
+    // Server errors
+    if (res.status >= 500) throw new Error("Something went wrong on the server. Please try again in a moment.");
+
+    // Standard backend error message
+    const message = typeof json?.error === "string" ? json.error : `Unexpected error (${res.status})`;
     throw new Error(message);
   }
+
   return json as T;
 }
 
