@@ -26,6 +26,8 @@ import { TrainingReflectionsScreen } from "../screens/TrainingReflectionsScreen"
 import { SupervisionFollowUpScreen } from "../screens/SupervisionFollowUpScreen";
 import { TrainingCoursesScreen } from "../screens/TrainingCoursesScreen";
 import { AssignTrainingScreen } from "../screens/AssignTrainingScreen";
+import { ManageCoursesScreen } from "../screens/ManageCoursesScreen";
+import { ManageCourseDetailScreen } from "../screens/ManageCourseDetailScreen";
 
 export type MainStackParamList = {
   Children: undefined;
@@ -53,6 +55,8 @@ export type MainStackParamList = {
   TrainerDashboard: undefined;
   Invitations: undefined;
   Invite: { token: string };
+  ManageCourses: undefined;
+  ManageCourseDetail: { courseId: string };
 };
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -98,6 +102,8 @@ export function MainStack() {
       <Stack.Screen name="TrainerDashboard" component={TrainerDashboardScreen} options={{ title: "Trainer Dashboard" }} />
       <Stack.Screen name="Invitations" component={InvitationsScreen} options={{ title: "Invitations" }} />
       <Stack.Screen name="Invite" component={MainInviteLinkScreen} options={{ title: "Invitation" }} />
+      <Stack.Screen name="ManageCourses" component={ManageCoursesScreen} options={{ title: "Manage Courses" }} />
+      <Stack.Screen name="ManageCourseDetail" component={ManageCourseDetailScreen} options={{ title: "Course Detail" }} />
     </Stack.Navigator>
   );
 }

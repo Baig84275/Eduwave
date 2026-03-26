@@ -10,12 +10,14 @@ import { ChildrenStack } from "./stacks/ChildrenStack";
 import { TrainingStack } from "./stacks/TrainingStack";
 import { ResourcesStack } from "./stacks/ResourcesStack";
 import { ProfileStack } from "./stacks/ProfileStack";
+import { CoursesStack } from "./stacks/CoursesStack";
 
 export type MainTabsParamList = {
   HomeTab: undefined;
   ChildrenTab: undefined;
   TrainingTab: undefined;
   ResourcesTab: undefined;
+  CoursesTab: undefined;
   ProfileTab: undefined;
 };
 
@@ -27,6 +29,7 @@ const TAB_VISIBILITY: Record<string, string[]> = {
   ChildrenTab: ["PARENT", "FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR", "ORG_ADMIN", "ADMIN", "SUPER_ADMIN"],
   TrainingTab: ["FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR", "ORG_ADMIN", "ADMIN", "SUPER_ADMIN"],
   ResourcesTab: ["FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR", "ORG_ADMIN", "ADMIN", "SUPER_ADMIN"],
+  CoursesTab: ["TRAINER_SUPERVISOR", "ADMIN", "SUPER_ADMIN"],
   ProfileTab: ["PARENT", "FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR", "ORG_ADMIN", "ADMIN", "SUPER_ADMIN"],
 };
 
@@ -86,6 +89,16 @@ export function MainTabs() {
           component={ResourcesStack}
           options={{
             title: "Resources",
+          }}
+        />
+      )}
+
+      {canSeeTab("CoursesTab") && (
+        <Tab.Screen
+          name="CoursesTab"
+          component={CoursesStack}
+          options={{
+            title: "Courses",
           }}
         />
       )}

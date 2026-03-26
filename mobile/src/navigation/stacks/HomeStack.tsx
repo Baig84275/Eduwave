@@ -14,6 +14,8 @@ import { AssignFacilitatorScreen } from "../../screens/AssignFacilitatorScreen";
 import { TrainerDashboardScreen } from "../../screens/TrainerDashboardScreen";
 import { OrgOverviewScreen } from "../../screens/OrgOverviewScreen";
 import { AssignTrainingScreen } from "../../screens/AssignTrainingScreen";
+import { ManageCoursesScreen } from "../../screens/ManageCoursesScreen";
+import { ManageCourseDetailScreen } from "../../screens/ManageCourseDetailScreen";
 
 export type HomeStackParamList = {
   Dashboard: undefined;
@@ -26,6 +28,8 @@ export type HomeStackParamList = {
   Approvals: { childId: string };
   AssignFacilitator: { childId: string };
   AssignTraining: undefined;
+  ManageCourses: undefined;
+  ManageCourseDetail: { courseId: string };
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -108,6 +112,16 @@ export function HomeStack() {
         name="AssignTraining"
         component={AssignTrainingScreen}
         options={{ title: "Assign Training" }}
+      />
+      <Stack.Screen
+        name="ManageCourses"
+        component={ManageCoursesScreen}
+        options={{ title: "Manage Courses" }}
+      />
+      <Stack.Screen
+        name="ManageCourseDetail"
+        component={ManageCourseDetailScreen}
+        options={{ title: "Course Detail" }}
       />
     </Stack.Navigator>
   );

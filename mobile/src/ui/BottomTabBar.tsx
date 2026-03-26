@@ -50,6 +50,12 @@ const TAB_CONFIGS: Record<string, TabConfig> = {
     icon: "map-marker-outline",
     iconFocused: "map-marker",
   },
+  CoursesTab: {
+    name: "CoursesTab",
+    label: "Courses",
+    icon: "school-outline",
+    iconFocused: "school",
+  },
   ProfileTab: {
     name: "ProfileTab",
     label: "Profile",

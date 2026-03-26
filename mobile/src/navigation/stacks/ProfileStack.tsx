@@ -13,6 +13,8 @@ import { CreateSupervisionLogScreen } from "../../screens/CreateSupervisionLogSc
 import { SupervisionFollowUpScreen } from "../../screens/SupervisionFollowUpScreen";
 import { InvitationsScreen } from "../../screens/InvitationsScreen";
 import { MainInviteLinkScreen } from "../../screens/MainInviteLinkScreen";
+import { ManageCoursesScreen } from "../../screens/ManageCoursesScreen";
+import { ManageCourseDetailScreen } from "../../screens/ManageCourseDetailScreen";
 
 export type ProfileStackParamList = {
   Profile: undefined;
@@ -25,6 +27,8 @@ export type ProfileStackParamList = {
   SupervisionFollowUp: { logId: string };
   Invitations: undefined;
   Invite: { token: string };
+  ManageCourses: undefined;
+  ManageCourseDetail: { courseId: string };
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -92,6 +96,16 @@ export function ProfileStack() {
         name="Invite"
         component={MainInviteLinkScreen}
         options={{ title: "Accept Invitation" }}
+      />
+      <Stack.Screen
+        name="ManageCourses"
+        component={ManageCoursesScreen}
+        options={{ title: "Manage Courses" }}
+      />
+      <Stack.Screen
+        name="ManageCourseDetail"
+        component={ManageCourseDetailScreen}
+        options={{ title: "Course Detail" }}
       />
     </Stack.Navigator>
   );

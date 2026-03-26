@@ -8,6 +8,8 @@ import { TrainingCoursesScreen } from "../../screens/TrainingCoursesScreen";
 import { TrainingReflectionsScreen } from "../../screens/TrainingReflectionsScreen";
 import { TrainingReflectionFormScreen } from "../../screens/TrainingReflectionFormScreen";
 import { AssignTrainingScreen } from "../../screens/AssignTrainingScreen";
+import { ManageCoursesScreen } from "../../screens/ManageCoursesScreen";
+import { ManageCourseDetailScreen } from "../../screens/ManageCourseDetailScreen";
 
 export type TrainingStackParamList = {
   TrainingHub: undefined;
@@ -15,6 +17,8 @@ export type TrainingStackParamList = {
   TrainingReflections: undefined;
   TrainingReflection: { moduleId: string; courseId: string; moduleName: string };
   AssignTraining: undefined;
+  ManageCourses: undefined;
+  ManageCourseDetail: { courseId: string };
 };
 
 const Stack = createNativeStackNavigator<TrainingStackParamList>();
@@ -57,6 +61,16 @@ export function TrainingStack() {
         name="AssignTraining"
         component={AssignTrainingScreen}
         options={{ title: "Assign Training" }}
+      />
+      <Stack.Screen
+        name="ManageCourses"
+        component={ManageCoursesScreen}
+        options={{ title: "Manage Courses" }}
+      />
+      <Stack.Screen
+        name="ManageCourseDetail"
+        component={ManageCourseDetailScreen}
+        options={{ title: "Course Detail" }}
       />
     </Stack.Navigator>
   );

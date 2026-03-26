@@ -59,16 +59,165 @@ trainingRouter.post(
   })
 );
 
+const createCourseSchema = z.object({
+  title: z.string().min(1).max(200),
+  levelNumber: z.number().int().min(1),
+  description: z.string().max(1000).optional().nullable(),
+  learnworldsUrl: z.string().min(1).optional().nullable()
+});
+
+trainingRouter.post(
+  "/courses",
+  requireRole(Role.ADMIN, Role.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const body = createCourseSchema.parse(req.body);
+    const course = await prisma.trainingCourse.create({
+      data: {
+        title: body.title,
+        levelNumber: body.levelNumber,
+        description: body.description ?? null,
+        learnworldsUrl: body.learnworldsUrl ?? "",
+        active: true
+      },
+      select: { id: true, title: true, levelNumber: true, description: true, learnworldsUrl: true, active: true, createdAt: true, updatedAt: true }
+    });
+    await writeAuditEvent({
+      prisma,
+      req,
+      actor: req.user!,
+      action: "training.course.create",
+      entityType: "TrainingCourse",
+      entityId: course.id,
+      metadata: { title: course.title, levelNumber: course.levelNumber }
+    });
+    res.status(201).json({ course });
+  })
+);
+
+const updateCourseSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  levelNumber: z.number().int().min(1).optional(),
+  description: z.string().max(1000).optional().nullable(),
+  learnworldsUrl: z.string().min(1).optional(),
+  active: z.boolean().optional()
+});
+
+trainingRouter.patch(
+  "/courses/:courseId",
+  requireRole(Role.ADMIN, Role.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const courseId = req.params.courseId;
+    const body = updateCourseSchema.parse(req.body);
+    const existing = await prisma.trainingCourse.findUnique({ where: { id: courseId }, select: { id: true } });
+    if (!existing) return res.status(404).json({ error: "Course not found" });
+    const course = await prisma.trainingCourse.update({
+      where: { id: courseId },
+      data: body,
+      select: { id: true, title: true, levelNumber: true, description: true, learnworldsUrl: true, active: true, createdAt: true, updatedAt: true }
+    });
+    await writeAuditEvent({
+      prisma,
+      req,
+      actor: req.user!,
+      action: "training.course.update",
+      entityType: "TrainingCourse",
+      entityId: course.id,
+      metadata: { changes: Object.keys(body) }
+    });
+    res.json({ course });
+  })
+);
+
 trainingRouter.get(
   "/courses",
   requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const includeInactive =
+      (req.query.includeInactive === "true" || req.query.includeInactive === "1") &&
+      (req.user!.role === Role.ADMIN || req.user!.role === Role.SUPER_ADMIN);
     const courses = await prisma.trainingCourse.findMany({
-      where: { active: true },
+      where: includeInactive ? undefined : { active: true },
       orderBy: { levelNumber: "asc" },
-      select: { id: true, title: true, levelNumber: true, description: true }
+      select: { id: true, title: true, levelNumber: true, description: true, learnworldsUrl: true, active: true }
     });
     res.json({ courses });
+  })
+);
+
+trainingRouter.get(
+  "/courses/:courseId/modules",
+  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const courseId = req.params.courseId;
+    const course = await prisma.trainingCourse.findUnique({
+      where: { id: courseId },
+      select: { id: true, title: true, levelNumber: true, description: true, learnworldsUrl: true, active: true }
+    });
+    if (!course) return res.status(404).json({ error: "Course not found" });
+    const modules = await prisma.trainingModule.findMany({
+      where: { courseId },
+      orderBy: { moduleName: "asc" },
+      select: { id: true, courseId: true, moduleName: true, lmsUrl: true, createdAt: true, updatedAt: true }
+    });
+    res.json({ course, modules });
+  })
+);
+
+trainingRouter.delete(
+  "/courses/:courseId",
+  requireRole(Role.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const courseId = req.params.courseId;
+    const existing = await prisma.trainingCourse.findUnique({
+      where: { id: courseId },
+      select: { id: true, title: true }
+    });
+    if (!existing) return res.status(404).json({ error: "Course not found" });
+
+    // Delete modules, assignments, completions, then the course (cascade via Prisma)
+    await prisma.$transaction([
+      prisma.trainingCompletion.deleteMany({
+        where: { module: { courseId } }
+      }),
+      prisma.trainingAssignment.deleteMany({
+        where: { module: { courseId } }
+      }),
+      prisma.trainingModule.deleteMany({ where: { courseId } }),
+      prisma.trainingCourse.delete({ where: { id: courseId } })
+    ]);
+
+    await writeAuditEvent({
+      prisma,
+      req,
+      actor: req.user!,
+      action: "training.course.delete",
+      entityType: "TrainingCourse",
+      entityId: courseId,
+      metadata: { title: existing.title }
+    });
+
+    res.json({ ok: true });
+  })
+);
+
+trainingRouter.delete(
+  "/modules/:moduleId",
+  requireRole(Role.ADMIN, Role.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const moduleId = req.params.moduleId;
+    const existing = await prisma.trainingModule.findUnique({ where: { id: moduleId }, select: { id: true, moduleName: true, courseId: true } });
+    if (!existing) return res.status(404).json({ error: "Module not found" });
+    await prisma.trainingModule.delete({ where: { id: moduleId } });
+    await writeAuditEvent({
+      prisma,
+      req,
+      actor: req.user!,
+      action: "training.module.delete",
+      entityType: "TrainingModule",
+      entityId: moduleId,
+      metadata: { moduleName: existing.moduleName, courseId: existing.courseId }
+    });
+    res.json({ ok: true });
   })
 );
 
