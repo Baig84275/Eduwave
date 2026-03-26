@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "EduWave Village",
+    "entryPoint": "./index.js",
     "slug": "eduwave-village",
     "version": "1.0.0",
     "orientation": "portrait",
