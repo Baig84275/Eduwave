@@ -63,7 +63,7 @@ const createCourseSchema = z.object({
   title: z.string().min(1).max(200),
   levelNumber: z.number().int().min(1),
   description: z.string().max(1000).optional().nullable(),
-  learnworldsUrl: z.string().url()
+  learnworldsUrl: z.string().min(1).optional().nullable()
 });
 
 trainingRouter.post(
@@ -76,7 +76,7 @@ trainingRouter.post(
         title: body.title,
         levelNumber: body.levelNumber,
         description: body.description ?? null,
-        learnworldsUrl: body.learnworldsUrl,
+        learnworldsUrl: body.learnworldsUrl ?? "",
         active: true
       },
       select: { id: true, title: true, levelNumber: true, description: true, learnworldsUrl: true, active: true, createdAt: true, updatedAt: true }
@@ -98,7 +98,7 @@ const updateCourseSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   levelNumber: z.number().int().min(1).optional(),
   description: z.string().max(1000).optional().nullable(),
-  learnworldsUrl: z.string().url().optional(),
+  learnworldsUrl: z.string().min(1).optional(),
   active: z.boolean().optional()
 });
 
@@ -160,6 +160,43 @@ trainingRouter.get(
       select: { id: true, courseId: true, moduleName: true, lmsUrl: true, createdAt: true, updatedAt: true }
     });
     res.json({ course, modules });
+  })
+);
+
+trainingRouter.delete(
+  "/courses/:courseId",
+  requireRole(Role.SUPER_ADMIN),
+  asyncHandler(async (req, res) => {
+    const courseId = req.params.courseId;
+    const existing = await prisma.trainingCourse.findUnique({
+      where: { id: courseId },
+      select: { id: true, title: true }
+    });
+    if (!existing) return res.status(404).json({ error: "Course not found" });
+
+    // Delete modules, assignments, completions, then the course (cascade via Prisma)
+    await prisma.$transaction([
+      prisma.trainingCompletion.deleteMany({
+        where: { module: { courseId } }
+      }),
+      prisma.trainingAssignment.deleteMany({
+        where: { module: { courseId } }
+      }),
+      prisma.trainingModule.deleteMany({ where: { courseId } }),
+      prisma.trainingCourse.delete({ where: { id: courseId } })
+    ]);
+
+    await writeAuditEvent({
+      prisma,
+      req,
+      actor: req.user!,
+      action: "training.course.delete",
+      entityType: "TrainingCourse",
+      entityId: courseId,
+      metadata: { title: existing.title }
+    });
+
+    res.json({ ok: true });
   })
 );
 

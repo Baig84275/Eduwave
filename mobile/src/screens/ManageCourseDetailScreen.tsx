@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -46,6 +46,30 @@ export function ManageCourseDetailScreen() {
 
   // Delete module
   const [deletingModuleId, setDeletingModuleId] = useState<string | null>(null);
+
+  const isSuperAdmin = session?.user.role === "SUPER_ADMIN";
+
+  const handleDeleteCourse = () => {
+    Alert.alert(
+      "Delete Course",
+      `Permanently delete "${course?.title}"?\n\nThis will remove ALL modules, assignments and completion records. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Course",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api.del(`/training/courses/${courseId}`, session);
+              navigation.goBack();
+            } catch (e: any) {
+              setError(e?.message ?? "Failed to delete course");
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const loadDetail = useCallback(async () => {
     if (!session) return;
@@ -257,6 +281,15 @@ export function ManageCourseDetailScreen() {
               icon={<MaterialCommunityIcons name="account-arrow-right-outline" size={18} color="#fff" />}
               onPress={() => navigation.navigate("AssignTraining")}
             />
+
+            {isSuperAdmin ? (
+              <AppButton
+                title="Delete Course"
+                variant="danger"
+                icon={<MaterialCommunityIcons name="trash-can-outline" size={18} color="#fff" />}
+                onPress={handleDeleteCourse}
+              />
+            ) : null}
 
             {/* Modules Section Header */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: tokens.spacing.xs }}>
