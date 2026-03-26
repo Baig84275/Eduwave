@@ -32,7 +32,7 @@ async function assertFacilitatorOrgScope(requester: { id: string; role: Role }, 
 const createModuleSchema = z.object({
   courseId: z.string().min(1),
   moduleName: z.string().min(1),
-  lmsUrl: z.string().url()
+  lmsUrl: z.string().min(1)
 });
 
 trainingRouter.post(
