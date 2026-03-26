@@ -64,6 +64,8 @@ export const accessibilityModes: Array<{
 ];
 
 const STORAGE_KEY = "eduwave.accessibility.config.v1";
+const SETUP_DONE_KEY = "eduwave.setup.done.v1";
+const PREAUTH_MODE_KEY = "eduwave.preauth.mode.v1";
 
 function defaultGranularForMode(mode: AccessibilityMode | null | undefined): AccessibilityConfig["granular"] {
   switch (mode) {
@@ -185,7 +187,9 @@ function getAccessibilityConfig(mode: AccessibilityMode | null | undefined, gran
 type AccessibilityContextValue = {
   mode: AccessibilityMode;
   config: AccessibilityConfig;
+  hasCompletedSetup: boolean;
   setMode: (mode: AccessibilityMode) => Promise<void>;
+  completePreAuthSetup: (mode: AccessibilityMode) => Promise<void>;
   setConfigPatch: (patch: Partial<AccessibilityConfig["granular"]>) => Promise<void>;
   setPreviewConfig: (next: AccessibilityConfig["granular"] | null) => void;
   resetToModeDefaults: (mode: AccessibilityMode) => Promise<void>;
@@ -195,13 +199,59 @@ const AccessibilityContext = createContext<AccessibilityContextValue | null>(nul
 
 export function AccessibilityProvider({ children }: { children: React.ReactNode }) {
   const { session, updateUser } = useAuth();
-  const mode = (session?.user.accessibilityMode ?? "STANDARD") as AccessibilityMode;
+  const [preAuthMode, setPreAuthMode] = useState<AccessibilityMode | null>(null);
+  const [hasCompletedSetup, setHasCompletedSetup] = useState<boolean | null>(null);
+
+  const mode = (session?.user.accessibilityMode ?? preAuthMode ?? "STANDARD") as AccessibilityMode;
   const userId = session?.user.id ?? null;
   const accessToken = session?.accessToken ?? null;
   const [storedGranular, setStoredGranular] = useState<AccessibilityConfig["granular"]>(() =>
     normalizeGranularConfig(mode, session?.user.accessibilityConfig)
   );
   const [previewGranular, setPreviewGranular] = useState<AccessibilityConfig["granular"] | null>(null);
+
+  // Load setup completion flag and pre-auth mode on mount / when session arrives
+  useEffect(() => {
+    (async () => {
+      try {
+        const [doneFlagRaw, preAuthModeRaw] = await Promise.all([
+          AsyncStorage.getItem(SETUP_DONE_KEY),
+          AsyncStorage.getItem(PREAUTH_MODE_KEY),
+        ]);
+        if (preAuthModeRaw) setPreAuthMode(preAuthModeRaw as AccessibilityMode);
+        if (doneFlagRaw === "1") {
+          setHasCompletedSetup(true);
+        } else if (session?.user.accessibilityMode) {
+          // Existing user already has a mode — mark setup as done silently
+          await AsyncStorage.setItem(SETUP_DONE_KEY, "1");
+          setHasCompletedSetup(true);
+        } else {
+          setHasCompletedSetup(false);
+        }
+      } catch {
+        setHasCompletedSetup(true); // fail open — never block the app
+      }
+    })();
+  }, [session?.user.accessibilityMode]);
+
+  // After login: sync the pre-auth mode to the backend if user has none yet
+  useEffect(() => {
+    if (!session || !preAuthMode || session.user.accessibilityMode) return;
+    (async () => {
+      try {
+        const res = await api.patch<{ user: { accessibilityMode: AccessibilityMode } }>(
+          "/users/me/accessibility-mode",
+          { accessibilityMode: preAuthMode },
+          session
+        );
+        await updateUser({ accessibilityMode: res.user.accessibilityMode });
+        await AsyncStorage.removeItem(PREAUTH_MODE_KEY);
+        setPreAuthMode(null);
+      } catch {
+        // fail silently — mode stays as preAuthMode locally
+      }
+    })();
+  }, [session, preAuthMode, updateUser]);
 
   useEffect(() => {
     if (!accessToken || !userId) {
@@ -233,6 +283,13 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
 
   const effectiveGranular = previewGranular ?? storedGranular;
   const config = useMemo(() => getAccessibilityConfig(mode, effectiveGranular), [effectiveGranular, mode]);
+
+  const completePreAuthSetup = useCallback(async (selectedMode: AccessibilityMode) => {
+    await AsyncStorage.setItem(PREAUTH_MODE_KEY, selectedMode);
+    await AsyncStorage.setItem(SETUP_DONE_KEY, "1");
+    setPreAuthMode(selectedMode);
+    setHasCompletedSetup(true);
+  }, []);
 
   const setMode = useCallback(
     async (nextMode: AccessibilityMode) => {
@@ -285,12 +342,14 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
     () => ({
       mode,
       config,
+      hasCompletedSetup: hasCompletedSetup ?? false,
       setMode,
+      completePreAuthSetup,
       setConfigPatch,
       setPreviewConfig: setPreviewGranular,
       resetToModeDefaults
     }),
-    [config, mode, resetToModeDefaults, setConfigPatch, setMode]
+    [completePreAuthSetup, config, hasCompletedSetup, mode, resetToModeDefaults, setConfigPatch, setMode]
   );
 
   return <AccessibilityContext.Provider value={value}>{children}</AccessibilityContext.Provider>;

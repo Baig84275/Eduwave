@@ -22,8 +22,9 @@ LogBox.ignoreLogs([
 
 function RootNavigator() {
   const { session } = useAuth();
+  const { hasCompletedSetup } = useAccessibility();
+  if (!hasCompletedSetup) return <SetupStack />;
   if (!session) return <AuthStack />;
-  if (!session.user.accessibilityMode) return <SetupStack />;
   return <MainTabs />;
 }
 

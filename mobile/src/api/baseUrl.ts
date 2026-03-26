@@ -6,6 +6,6 @@ export function getApiBaseUrl(): string {
   const envValue = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
   if (envValue) return normalizeBaseUrl(envValue);
 
-  return "https://eduwave-backend-qx7f.onrender.com";
+  return "https://eduwave-backend-0934ec2e76e3.herokuapp.com";
 
 }
