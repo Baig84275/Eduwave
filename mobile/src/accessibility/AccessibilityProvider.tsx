@@ -210,30 +210,15 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
   );
   const [previewGranular, setPreviewGranular] = useState<AccessibilityConfig["granular"] | null>(null);
 
-  // Load setup completion flag on mount / when session changes
+  // Determine setup completion whenever session changes
   useEffect(() => {
-    (async () => {
-      try {
-        if (!session) {
-          // No session yet — don't block the login screen with setup
-          setHasCompletedSetup(true);
-          return;
-        }
-        const doneFlagRaw = await AsyncStorage.getItem(SETUP_DONE_KEY);
-        if (doneFlagRaw === "1") {
-          setHasCompletedSetup(true);
-        } else if (session.user.accessibilityMode) {
-          // Existing user already has a mode — mark done silently
-          await AsyncStorage.setItem(SETUP_DONE_KEY, "1");
-          setHasCompletedSetup(true);
-        } else {
-          // Logged in but no mode chosen yet — show setup screen
-          setHasCompletedSetup(false);
-        }
-      } catch {
-        setHasCompletedSetup(true); // fail open — never block the app
-      }
-    })();
+    if (!session) {
+      // No session — never block the login screen
+      setHasCompletedSetup(true);
+      return;
+    }
+    // Post-login: user has a mode → done. No mode → show setup.
+    setHasCompletedSetup(!!session.user.accessibilityMode);
   }, [session?.user.id, session?.user.accessibilityMode]);
 
   // After login: sync the pre-auth mode to the backend if user has none yet
