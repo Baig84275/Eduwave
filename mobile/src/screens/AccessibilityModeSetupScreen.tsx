@@ -30,7 +30,7 @@ const MODE_DESCRIPTIONS: Record<AccessibilityMode, string> = {
 
 export function AccessibilityModeSetupScreen() {
   const { session } = useAuth();
-  const { config, setMode, completePreAuthSetup } = useAccessibility();
+  const { config, setMode } = useAccessibility();
   const colors = config.color.colors;
 
   const initial = useMemo(
@@ -168,11 +168,7 @@ export function AccessibilityModeSetupScreen() {
                 setSaving(true);
                 setError(null);
                 try {
-                  if (session) {
-                    await setMode(selected);
-                  } else {
-                    await completePreAuthSetup(selected);
-                  }
+                  await setMode(selected);
                 } catch (e: any) {
                   setError(e?.message ?? "Failed to save");
                 } finally {

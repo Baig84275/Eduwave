@@ -210,29 +210,31 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
   );
   const [previewGranular, setPreviewGranular] = useState<AccessibilityConfig["granular"] | null>(null);
 
-  // Load setup completion flag and pre-auth mode on mount / when session arrives
+  // Load setup completion flag on mount / when session changes
   useEffect(() => {
     (async () => {
       try {
-        const [doneFlagRaw, preAuthModeRaw] = await Promise.all([
-          AsyncStorage.getItem(SETUP_DONE_KEY),
-          AsyncStorage.getItem(PREAUTH_MODE_KEY),
-        ]);
-        if (preAuthModeRaw) setPreAuthMode(preAuthModeRaw as AccessibilityMode);
+        if (!session) {
+          // No session yet — don't block the login screen with setup
+          setHasCompletedSetup(true);
+          return;
+        }
+        const doneFlagRaw = await AsyncStorage.getItem(SETUP_DONE_KEY);
         if (doneFlagRaw === "1") {
           setHasCompletedSetup(true);
-        } else if (session?.user.accessibilityMode) {
-          // Existing user already has a mode — mark setup as done silently
+        } else if (session.user.accessibilityMode) {
+          // Existing user already has a mode — mark done silently
           await AsyncStorage.setItem(SETUP_DONE_KEY, "1");
           setHasCompletedSetup(true);
         } else {
+          // Logged in but no mode chosen yet — show setup screen
           setHasCompletedSetup(false);
         }
       } catch {
         setHasCompletedSetup(true); // fail open — never block the app
       }
     })();
-  }, [session?.user.accessibilityMode]);
+  }, [session?.user.id, session?.user.accessibilityMode]);
 
   // After login: sync the pre-auth mode to the backend if user has none yet
   useEffect(() => {
@@ -302,6 +304,8 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
         session
       );
       await updateUser({ accessibilityMode: res.user.accessibilityMode });
+      await AsyncStorage.setItem(SETUP_DONE_KEY, "1");
+      setHasCompletedSetup(true);
     },
     [session, updateUser]
   );
