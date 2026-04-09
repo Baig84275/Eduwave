@@ -244,15 +244,15 @@ export const components = {
   },
 } as const;
 
-// Gradients
+// Gradients — EduWave mockup palette
 export const gradients = {
-  primary: ["#0E7490", "#22D3EE"] as [string, string],
-  primaryDark: ["#155E75", "#0E7490"] as [string, string],
-  success: ["#16A34A", "#4ADE80"] as [string, string],
-  danger: ["#DC2626", "#F87171"] as [string, string],
-  warm: ["#F59E0B", "#FBBF24"] as [string, string],
-  cool: ["#2563EB", "#60A5FA"] as [string, string],
-  neutral: ["#475569", "#94A3B8"] as [string, string],
+  primary: ["#007B8A", "#005F6B"] as [string, string],
+  primaryDark: ["#005F6B", "#004A55"] as [string, string],
+  success: ["#3A9E6F", "#2A7E52"] as [string, string],
+  danger: ["#D32F2F", "#B71C1C"] as [string, string],
+  warm: ["#F4861E", "#C4680F"] as [string, string],
+  purple: ["#6B4FA0", "#4A2E7A"] as [string, string],
+  neutral: ["#555555", "#888888"] as [string, string],
 } as const;
 
 // Export all tokens

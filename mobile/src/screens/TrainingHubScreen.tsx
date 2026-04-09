@@ -1,214 +1,265 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useState } from "react";
-import { Linking, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useCallback, useState } from "react";
+import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "../api/client";
 import { TrainingCompletionStatus, TrainingModuleItem } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { TrainingStackParamList } from "../navigation/stacks/TrainingStack";
-import { AppButton } from "../ui/Button";
-import { Card } from "../ui/Card";
-import { ScrollScreen } from "../ui/ScrollScreen";
-import { ScreenHeader } from "../ui/ScreenHeader";
 import { AppText } from "../ui/Text";
-import { InlineAlert } from "../ui/InlineAlert";
-import { Badge } from "../ui/Badge";
-import { Divider } from "../ui/Divider";
-import { EmptyState } from "../ui/EmptyState";
-import { SkeletonCard } from "../ui/Skeleton";
-import { FadeInView, SlideInView } from "../animation/AnimatedComponents";
-import { useAccessibility } from "../accessibility/AccessibilityProvider";
+import { tokens } from "../theme/tokens";
 
 type Props = NativeStackScreenProps<TrainingStackParamList, "TrainingHub">;
 
-const STATUS_BADGE: Record<TrainingCompletionStatus, { color: "neutral" | "info" | "success"; label: string; icon: string }> = {
-  NOT_STARTED: { color: "neutral", label: "Not started", icon: "circle-outline" },
-  IN_PROGRESS: { color: "info",    label: "In progress", icon: "progress-clock"  },
-  COMPLETED:   { color: "success", label: "Completed",   icon: "check-circle"    },
-};
+const PURPLE = "#6B4FA0";
+const LEARN_TABS = ["My courses", "Browse", "Certificates"] as const;
+type LearnTab = (typeof LEARN_TABS)[number];
+
+function getModuleStatus(status: TrainingCompletionStatus) {
+  switch (status) {
+    case "COMPLETED":   return { label: "Done",        bg: "#E5F5EE", color: "#2A7E52", dotBg: PURPLE,    dotColor: "#fff" };
+    case "IN_PROGRESS": return { label: "In progress", bg: "#FEF3E8", color: "#C4680F", dotBg: "#E8F5E9", dotColor: "#3A9E6F" };
+    default:            return { label: "Upcoming",    bg: "#f0f0f0", color: "#999",    dotBg: "#F0EBF8", dotColor: PURPLE };
+  }
+}
 
 export function TrainingHubScreen({ navigation }: Props) {
   const { session } = useAuth();
-  const { config } = useAccessibility();
-  const colors = config.color.colors;
 
   const [modules, setModules] = useState<TrainingModuleItem[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<LearnTab>("My courses");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (refresh = false) => {
     if (!session) return;
-    setLoading(true);
-    setError(null);
+    if (refresh) setRefreshing(true);
     try {
       const res = await api.get<{ modules: TrainingModuleItem[] }>("/training/my-modules", session);
       setModules(res.modules);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load");
+    } catch {
+      /* swallow */
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
   }, [session]);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const setStatus = async (item: TrainingModuleItem, status: TrainingCompletionStatus) => {
-    if (!session) return;
-    setError(null);
-    try {
-      await api.post("/training/completions", { moduleId: item.module.id, status }, session);
-      await load();
-      if (status === "COMPLETED") {
-        navigation.navigate("TrainingReflection", {
-          moduleId: item.module.id,
-          courseId: item.module.courseId,
-          moduleName: item.module.moduleName,
-        });
-      }
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to update");
-    }
+  const completed   = modules.filter((m) => m.status === "COMPLETED");
+  const inProgress  = modules.filter((m) => m.status === "IN_PROGRESS");
+  const totalPct    = modules.length ? Math.round((completed.length / modules.length) * 100) : 0;
+  const currentIdx  = inProgress.length ? modules.indexOf(inProgress[0]) + 1 : completed.length + 1;
+
+  const openModule = (mod: TrainingModuleItem) => {
+    if (mod.module.lmsUrl) Linking.openURL(mod.module.lmsUrl).catch(() => {});
+    else navigation.navigate("TrainingCourses");
   };
 
-  const completedCount = modules.filter((m) => m.status === "COMPLETED").length;
-  const inProgressCount = modules.filter((m) => m.status === "IN_PROGRESS").length;
-
   return (
-    <ScrollScreen>
-      <FadeInView>
-        <View style={{ gap: 16 }}>
-          <ScreenHeader
-            title="Training"
-            subtitle="Links-only training tracking. No hosting, quizzes, assessments, or certificates."
-          />
+    <SafeAreaView style={styles.root} edges={["top"]}>
+      {/* Purple header */}
+      <View style={styles.header}>
+        <AppText style={styles.headerTitle}>Training &amp; Courses</AppText>
+        <AppText style={styles.headerSub}>Grow your knowledge. Change a child's life.</AppText>
+      </View>
 
-          {error ? <InlineAlert tone="danger" text={error} /> : null}
+      {/* Tabs */}
+      <View style={styles.tabRow}>
+        {LEARN_TABS.map((tab) => (
+          <Pressable key={tab} style={styles.tabItem} onPress={() => setActiveTab(tab)}>
+            <AppText style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}>
+              {tab}
+            </AppText>
+            {activeTab === tab && <View style={styles.tabUnderline} />}
+          </Pressable>
+        ))}
+      </View>
 
-          {/* Stats bar */}
-          {modules.length > 0 && (
-            <SlideInView direction="up" delay={80}>
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <Card style={{ flex: 1 }} variant="solid">
-                  <AppText variant="h2" weight="black">{modules.length}</AppText>
-                  <AppText variant="caption" tone="muted" style={{ marginTop: 2 }}>Assigned</AppText>
-                </Card>
-                <Card style={{ flex: 1 }} variant="solid">
-                  <AppText variant="h2" weight="black" style={{ color: colors.info }}>{inProgressCount}</AppText>
-                  <AppText variant="caption" tone="muted" style={{ marginTop: 2 }}>In progress</AppText>
-                </Card>
-                <Card style={{ flex: 1 }} variant="solid">
-                  <AppText variant="h2" weight="black" style={{ color: colors.success }}>{completedCount}</AppText>
-                  <AppText variant="caption" tone="muted" style={{ marginTop: 2 }}>Completed</AppText>
-                </Card>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={PURPLE} colors={[PURPLE]} />
+        }
+      >
+        {activeTab === "My courses" && (
+          <>
+            {/* Progress summary card */}
+            {modules.length > 0 && (
+              <View style={styles.progressCard}>
+                <AppText style={styles.progressLabel}>Currently enrolled</AppText>
+                <AppText style={styles.progressTitle}>
+                  {(modules[0] as any)?.courseName ?? "Level 1 Facilitator Course"}
+                </AppText>
+                <View style={styles.progressBarOuter}>
+                  <View style={[styles.progressBarInner, { width: `${totalPct}%` as any }]} />
+                </View>
+                <AppText style={styles.progressMeta}>
+                  {totalPct}% complete · Module {currentIdx} of {modules.length}
+                </AppText>
               </View>
-            </SlideInView>
-          )}
+            )}
 
-          {/* Quick actions */}
-          <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
-            <AppButton
-              title="My Reflections"
-              variant="secondary"
-              icon={<MaterialCommunityIcons name="book-open-outline" size={18} color={colors.textMuted} />}
-              onPress={() => navigation.navigate("TrainingReflections")}
-            />
-            <AppButton
-              title="Refresh"
-              variant="ghost"
-              loading={loading}
-              icon={<MaterialCommunityIcons name="refresh" size={18} color={colors.textMuted} />}
-              onPress={() => void load()}
-            />
+            {/* Module list */}
+            <AppText style={styles.sectionTitle}>Modules</AppText>
+            {modules.map((mod, i) => {
+              const s = getModuleStatus(mod.status);
+              const num = i + 1;
+              const isCurrent = mod.status === "IN_PROGRESS";
+              return (
+                <Pressable
+                  key={mod.module.id}
+                  style={[styles.modCard, isCurrent && styles.modCardCurrent]}
+                  onPress={() => openModule(mod)}
+                >
+                  <View style={[styles.modNum, { backgroundColor: s.dotBg }, isCurrent && styles.modNumCurrent]}>
+                    <AppText style={[styles.modNumText, { color: s.dotColor }]}>{num}</AppText>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <AppText style={styles.modName}>{mod.module.moduleName}</AppText>
+                    {mod.module.lmsUrl ? (
+                      <AppText style={styles.modSub} numberOfLines={1}>{mod.module.lmsUrl}</AppText>
+                    ) : null}
+                  </View>
+                  <View style={[styles.modBadge, { backgroundColor: s.bg }]}>
+                    <AppText style={[styles.modBadgeText, { color: s.color }]}>{s.label}</AppText>
+                  </View>
+                </Pressable>
+              );
+            })}
+
+            {modules.length === 0 && (
+              <View style={styles.empty}>
+                <AppText style={{ fontSize: 36, marginBottom: 8 }}>🎓</AppText>
+                <AppText style={styles.emptyTitle}>No modules yet</AppText>
+                <AppText style={styles.emptyDesc}>Your training modules will appear here once assigned.</AppText>
+                <Pressable style={styles.browseBtn} onPress={() => navigation.navigate("TrainingCourses")}>
+                  <AppText style={styles.browseBtnText}>Browse courses</AppText>
+                </Pressable>
+              </View>
+            )}
+          </>
+        )}
+
+        {activeTab === "Browse" && (
+          <View style={styles.empty}>
+            <AppText style={{ fontSize: 36, marginBottom: 8 }}>📚</AppText>
+            <AppText style={styles.emptyTitle}>Course catalogue</AppText>
+            <AppText style={styles.emptyDesc}>Explore all available courses and modules.</AppText>
+            <Pressable style={styles.browseBtn} onPress={() => navigation.navigate("TrainingCourses")}>
+              <AppText style={styles.browseBtnText}>View courses</AppText>
+            </Pressable>
           </View>
+        )}
 
-          {/* Admin / trainer management actions */}
-          {(session?.user.role === "TRAINER_SUPERVISOR" || session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN") && (
-            <View style={{ gap: 8 }}>
-              <Divider label="COURSE MANAGEMENT" />
-              <AppButton
-                title="Manage Courses"
-                variant="secondary"
-                icon={<MaterialCommunityIcons name="school-outline" size={18} color={colors.textMuted} />}
-                onPress={() => navigation.navigate("ManageCourses")}
-              />
-              <AppButton
-                title="Assign Training"
-                variant="secondary"
-                icon={<MaterialCommunityIcons name="account-arrow-right-outline" size={18} color={colors.textMuted} />}
-                onPress={() => navigation.navigate("AssignTraining")}
-              />
-            </View>
-          )}
-
-          <Divider label={loading ? "LOADING..." : `${modules.length} MODULES`} />
-
-          {/* Module list */}
-          {loading ? (
-            <View style={{ gap: 12 }}>{[1, 2, 3].map((i) => <SkeletonCard key={i} />)}</View>
-          ) : modules.length === 0 ? (
-            <EmptyState
-              title="No training modules assigned"
-              message="Your trainer will assign modules here. Check back soon."
-            />
-          ) : (
-            <View style={{ gap: 12 }}>
-              {modules.map((item, index) => {
-                const statusCfg = STATUS_BADGE[item.status] ?? STATUS_BADGE.NOT_STARTED;
-                return (
-                  <SlideInView key={item.module.id} direction="up" delay={index * 60}>
-                    <Card variant="elevated" elevation="md">
-                      <View style={{ gap: 10 }}>
-                        {/* Header */}
-                        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                          <View style={{ flex: 1 }}>
-                            <AppText variant="body" weight="bold" numberOfLines={2}>{item.module.moduleName}</AppText>
-                            <AppText variant="caption" tone="muted" style={{ marginTop: 2 }}>
-                              Course {item.module.courseId}
-                              {item.completedAt ? ` · Completed ${new Date(item.completedAt).toLocaleDateString()}` : ""}
-                            </AppText>
-                          </View>
-                          <Badge label={statusCfg.label} color={statusCfg.color} variant="subtle" size="sm" />
-                        </View>
-
-                        <Divider />
-
-                        {/* Actions */}
-                        <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-                          <AppButton
-                            title="Open module"
-                            size="sm"
-                            icon={<MaterialCommunityIcons name="open-in-new" size={16} color="#fff" />}
-                            onPress={() => void Linking.openURL(item.module.lmsUrl)}
-                          />
-                          {item.status !== "IN_PROGRESS" && (
-                            <AppButton
-                              title="Mark in progress"
-                              variant="secondary"
-                              size="sm"
-                              icon={<MaterialCommunityIcons name="progress-clock" size={16} color={colors.textMuted} />}
-                              onPress={() => void setStatus(item, "IN_PROGRESS")}
-                            />
-                          )}
-                          {item.status !== "COMPLETED" && (
-                            <AppButton
-                              title="Mark completed"
-                              variant="success"
-                              size="sm"
-                              icon={<MaterialCommunityIcons name="check" size={16} color="#fff" />}
-                              onPress={() => void setStatus(item, "COMPLETED")}
-                            />
-                          )}
-                        </View>
-                      </View>
-                    </Card>
-                  </SlideInView>
-                );
-              })}
-            </View>
-          )}
-        </View>
-      </FadeInView>
-    </ScrollScreen>
+        {activeTab === "Certificates" && (
+          <View style={styles.empty}>
+            <AppText style={{ fontSize: 36, marginBottom: 8 }}>🏅</AppText>
+            <AppText style={styles.emptyTitle}>Certificates</AppText>
+            <AppText style={styles.emptyDesc}>
+              Complete {completed.length > 0 ? "more " : ""}modules to earn certificates.{" "}
+            </AppText>
+            {completed.length > 0 && (
+              <AppText style={{ color: "#3A9E6F", fontWeight: "700", marginTop: 8 }}>
+                {completed.length} module{completed.length !== 1 ? "s" : ""} completed
+              </AppText>
+            )}
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#F8FAFC" },
+  header: {
+    backgroundColor: PURPLE,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingTop: tokens.spacing.md,
+    paddingBottom: tokens.spacing.lg,
+  },
+  headerTitle: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  headerSub: { fontSize: 10, color: "rgba(255,255,255,0.8)", marginTop: 2 },
+  tabRow: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#e0e0e0",
+  },
+  tabItem: { flex: 1, alignItems: "center", paddingVertical: 9, position: "relative" },
+  tabLabel: { fontSize: 11, fontWeight: "600", color: "#999" },
+  tabLabelActive: { color: PURPLE, fontWeight: "700" },
+  tabUnderline: {
+    position: "absolute",
+    bottom: 0,
+    left: "15%",
+    right: "15%",
+    height: 2,
+    backgroundColor: PURPLE,
+    borderRadius: 2,
+  },
+  progressCard: {
+    backgroundColor: "#fff",
+    borderWidth: 0.5,
+    borderColor: "#e4e4e4",
+    borderRadius: 11,
+    margin: tokens.spacing.md,
+    marginBottom: 0,
+    padding: 12,
+  },
+  progressLabel: { fontSize: 9, fontWeight: "700", color: "#888", textTransform: "uppercase", letterSpacing: 0.3, marginBottom: 4 },
+  progressTitle: { fontSize: 13, fontWeight: "600", color: PURPLE, marginBottom: 6 },
+  progressBarOuter: { height: 7, backgroundColor: "#f0f0f0", borderRadius: 6, overflow: "hidden" },
+  progressBarInner: { height: "100%", backgroundColor: PURPLE, borderRadius: 6 },
+  progressMeta: { fontSize: 9, color: PURPLE, fontWeight: "700", marginTop: 4 },
+  sectionTitle: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#1A1A2E",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingTop: 12,
+    paddingBottom: 5,
+  },
+  modCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: tokens.spacing.md,
+    marginBottom: 5,
+    backgroundColor: "#fff",
+    borderWidth: 0.5,
+    borderColor: "#e4e4e4",
+    borderRadius: 11,
+    padding: 10,
+  },
+  modCardCurrent: { borderColor: PURPLE, borderWidth: 1 },
+  modNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  modNumCurrent: {},
+  modNumText: { fontSize: 10, fontWeight: "700" },
+  modName: { fontSize: 12, fontWeight: "600", color: "#1A1A2E" },
+  modSub: { fontSize: 9, color: "#888", marginTop: 2 },
+  modBadge: { borderRadius: 20, paddingHorizontal: 7, paddingVertical: 3, flexShrink: 0 },
+  modBadgeText: { fontSize: 8, fontWeight: "700" },
+  empty: { alignItems: "center", paddingTop: 48, paddingHorizontal: tokens.spacing.xl },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: "#1A1A2E", marginBottom: 6 },
+  emptyDesc: { fontSize: 13, color: "#888", textAlign: "center", lineHeight: 20 },
+  browseBtn: {
+    marginTop: 16,
+    backgroundColor: PURPLE,
+    borderRadius: 11,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  browseBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+});

@@ -58,52 +58,52 @@ const standardColors: ThemeColors = {
   surface: "#FFFFFF",
   surfaceAlt: "#F1F5F9",
   surfaceElevated: "#FFFFFF",
-  surfacePressed: "#E2E8F0",
-  border: "#E2E8F0",
-  borderLight: "#F1F5F9",
+  surfacePressed: "#E0F4F7",
+  border: "#E4E4E4",
+  borderLight: "#F0F0F0",
 
   // Text
-  text: "#0F172A",
-  textMuted: "#475569",
+  text: "#1A1A2E",
+  textMuted: "#888888",
   textInverse: "#FFFFFF",
 
-  // Brand
-  primary: "#0E7490",
-  primaryDark: "#155E75",
-  primaryLight: "#67E8F9",
-  accent: "#2563EB",
+  // Brand — EduWave mockup palette
+  primary: "#007B8A",
+  primaryDark: "#005F6B",
+  primaryLight: "#E0F4F7",
+  accent: "#F4861E",
 
   // Semantic
-  danger: "#DC2626",
-  dangerLight: "#FEE2E2",
-  success: "#16A34A",
-  successLight: "#DCFCE7",
-  warning: "#F59E0B",
-  warningLight: "#FEF3C7",
-  info: "#3B82F6",
-  infoLight: "#DBEAFE",
+  danger: "#D32F2F",
+  dangerLight: "#FFEBEE",
+  success: "#3A9E6F",
+  successLight: "#E5F5EE",
+  warning: "#F4861E",
+  warningLight: "#FEF3E8",
+  info: "#6B4FA0",
+  infoLight: "#F0EBF8",
 
   // Interactive
-  focusRing: "#38BDF8",
+  focusRing: "#007B8A",
 
   // Glassmorphism
   glassBackground: "rgba(255, 255, 255, 0.75)",
   glassBorder: "rgba(255, 255, 255, 0.18)",
-  glassBackgroundDark: "rgba(15, 23, 42, 0.75)",
+  glassBackgroundDark: "rgba(26, 26, 46, 0.75)",
 
   // Gradients
-  gradientStart: "#0E7490",
-  gradientEnd: "#22D3EE",
+  gradientStart: "#007B8A",
+  gradientEnd: "#005F6B",
 
   // Tab bar
-  tabBarBackground: "rgba(255, 255, 255, 0.95)",
-  tabBarBorder: "rgba(226, 232, 240, 0.8)",
-  tabBarActive: "#0E7490",
-  tabBarInactive: "#94A3B8",
+  tabBarBackground: "rgba(255, 255, 255, 0.97)",
+  tabBarBorder: "rgba(224, 224, 224, 0.8)",
+  tabBarActive: "#007B8A",
+  tabBarInactive: "#999999",
 
   // Overlay
-  overlay: "rgba(15, 23, 42, 0.5)",
-  overlayLight: "rgba(15, 23, 42, 0.25)",
+  overlay: "rgba(26, 26, 46, 0.5)",
+  overlayLight: "rgba(26, 26, 46, 0.25)",
 };
 
 export function getColorsForAccessibilityMode(mode: string | null | undefined): ThemeColors {

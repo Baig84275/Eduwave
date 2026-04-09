@@ -1,41 +1,53 @@
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useCallback, useState } from "react";
-import { FlatList, View, StyleSheet, RefreshControl } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useCallback, useState } from "react";
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 import { api } from "../api/client";
 import { Child } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
-import { HomeStackParamList } from "../navigation/stacks/HomeStack";
-import { AppButton, IconButton } from "../ui/Button";
-import { Card, CardHeader } from "../ui/Card";
+import { ChildrenStackParamList } from "../navigation/stacks/ChildrenStack";
 import { AppText } from "../ui/Text";
-import { InlineAlert } from "../ui/InlineAlert";
-import { EmptyState } from "../ui/EmptyState";
-import { Avatar } from "../ui/Avatar";
-import { Badge } from "../ui/Badge";
-import { SkeletonCard } from "../ui/Skeleton";
 import { tokens } from "../theme/tokens";
-import { FadeInView, SlideInView, StaggeredItem } from "../animation/AnimatedComponents";
-import { useToast } from "../ui/ToastProvider";
 
-type NavigationProp = NativeStackNavigationProp<HomeStackParamList>;
+type Nav = NativeStackNavigationProp<ChildrenStackParamList>;
+
+const ORANGE = "#F4861E";
+const DARK = "#1A1A2E";
+
+const TABS = ["Overview", "Log", "Goals", "Team"] as const;
+type TrackerTab = (typeof TABS)[number];
+
+function GoalBar({ label, pct }: { label: string; pct: number }) {
+  return (
+    <View style={styles.goalRow}>
+      <AppText style={styles.goalLabel} numberOfLines={1}>{label}</AppText>
+      <View style={styles.goalBarW}>
+        <View style={[styles.goalBarFill, { width: `${pct}%` as any }]} />
+      </View>
+      <AppText style={styles.goalPct}>{pct}%</AppText>
+    </View>
+  );
+}
 
 export function ChildListScreen() {
-  const navigation = useNavigation<NavigationProp>();
+  const navigation = useNavigation<Nav>();
   const { session } = useAuth();
   const { config } = useAccessibility();
   const colors = config.color.colors;
-  const insets = useSafeAreaInsets();
-  const toast = useToast();
 
   const [children, setChildren] = useState<Child[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TrackerTab>("Overview");
 
   const isParent = session?.user.role === "PARENT";
 
@@ -44,258 +56,358 @@ export function ChildListScreen() {
       try {
         if (showRefresh) setRefreshing(true);
         else setLoading(true);
-        setError(null);
         const res = await api.get<{ children: Child[] }>("/children", session);
         setChildren(res.children);
-      } catch (e: any) {
-        setError(e?.message ?? "Failed to load children");
-        toast.error("Error", e?.message ?? "Failed to load children");
+      } catch {
+        /* swallow */
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [session, toast]
+    [session]
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchChildren();
-    }, [fetchChildren])
-  );
+  useFocusEffect(useCallback(() => { fetchChildren(); }, [fetchChildren]));
 
-  const handleRefresh = () => fetchChildren(true);
+  const firstChild = children[0];
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  };
-
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      {/* Welcome Card with Gradient */}
-      <FadeInView delay={0}>
-        <LinearGradient
-          colors={[colors.gradientStart, colors.gradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.welcomeCard, { borderRadius: tokens.radius.xl }]}
-        >
-          <View style={styles.welcomeContent}>
-            <View style={styles.welcomeText}>
-              <AppText variant="body" style={{ color: "rgba(255,255,255,0.8)" }}>
-                {getGreeting()}
-              </AppText>
-              <AppText variant="h2" weight="bold" style={{ color: "#FFFFFF", marginTop: 4 }}>
-                {session?.user.email?.split("@")[0] || "User"}
-              </AppText>
-              <AppText variant="caption" style={{ color: "rgba(255,255,255,0.7)", marginTop: 8 }}>
-                {isParent
-                  ? `${children.length} child profile${children.length !== 1 ? "s" : ""}`
-                  : `${children.length} assigned child${children.length !== 1 ? "ren" : ""}`}
-              </AppText>
-            </View>
-            <Avatar
-              name={session?.user.email || "User"}
-              size="lg"
-              showGradientBorder={false}
-            />
-          </View>
-        </LinearGradient>
-      </FadeInView>
-
-      {/* Quick Actions */}
-      {isParent && (
-        <SlideInView direction="up" delay={100}>
-          <AppButton
-            title="Add Child Profile"
-            variant="primary"
-            size="lg"
-            fullWidth
-            icon={<MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />}
-            onPress={() => navigation.navigate("CreateChild")}
-          />
-        </SlideInView>
-      )}
-
-      {/* Section Header */}
-      <SlideInView direction="up" delay={150}>
-        <View style={styles.sectionHeader}>
-          <AppText variant="h3" weight="bold">
-            {isParent ? "My Children" : "Assigned Children"}
-          </AppText>
-          <Badge
-            label={`${children.length}`}
-            color="primary"
-            variant="subtle"
-            size="sm"
-          />
-        </View>
-      </SlideInView>
-
-      {error && (
-        <SlideInView direction="up" delay={200}>
-          <InlineAlert tone="danger" text={error} />
-        </SlideInView>
-      )}
-    </View>
-  );
-
-  const renderChild = ({ item, index }: { item: Child; index: number }) => {
-    const age = Math.floor(
-      (Date.now() - new Date(item.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-    );
-
-    return (
-      <StaggeredItem index={index} staggerDelay={50}>
-        <Card
-          variant="elevated"
-          pressable
-          onPress={() => navigation.navigate("Child", { childId: item.id })}
-          style={styles.childCard}
-        >
-          <View style={styles.childCardContent}>
-            <Avatar name={item.name} size="lg" />
-            <View style={styles.childInfo}>
-              <AppText variant="body" weight="semibold">
-                {item.name}
-              </AppText>
-              <AppText variant="caption" tone="muted" style={{ marginTop: 2 }}>
-                {age} years old
-              </AppText>
-              <View style={styles.childMeta}>
-                <Badge
-                  label={new Date(item.dateOfBirth).toLocaleDateString()}
-                  color="neutral"
-                  variant="subtle"
-                  size="sm"
-                />
-              </View>
-            </View>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={24}
-              color={colors.textMuted}
-            />
-          </View>
-        </Card>
-      </StaggeredItem>
-    );
-  };
-
-  const renderEmpty = () => {
-    if (loading) {
-      return (
-        <View style={styles.skeletonContainer}>
-          <SkeletonCard />
-          <SkeletonCard />
-        </View>
-      );
-    }
-
-    return (
-      <FadeInView delay={200}>
-        <EmptyState
-          title={isParent ? "No children yet" : "No assignments"}
-          message={
-            isParent
-              ? "Create your first child profile to start tracking their progress and connecting with facilitators."
-              : "You haven't been assigned to any children yet. Contact your supervisor for assignments."
-          }
-          action={
-            isParent ? (
-              <AppButton
-                title="Create Child Profile"
-                variant="primary"
-                onPress={() => navigation.navigate("CreateChild")}
-                icon={<MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />}
-              />
-            ) : undefined
-          }
-        />
-      </FadeInView>
-    );
-  };
+  function getAge(dob?: string) {
+    if (!dob) return null;
+    return Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+  }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <FlatList
-        data={children}
-        keyExtractor={(item) => item.id}
-        renderItem={renderChild}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={renderEmpty}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingTop: insets.top + tokens.spacing.md },
-        ]}
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
+      {/* Orange header */}
+      <View style={styles.header}>
+        <AppText style={styles.headerTitle}>Child Progress Tracker</AppText>
+        <AppText style={styles.headerSub}>
+          {firstChild ? `${firstChild.name}'s team` : "Your children"} · {children.length} {children.length === 1 ? "child" : "children"}
+        </AppText>
+      </View>
+
+      {/* Tabs */}
+      <View style={[styles.tabRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        {TABS.map((tab) => (
+          <Pressable
+            key={tab}
+            style={styles.tabItem}
+            onPress={() => setActiveTab(tab)}
+          >
+            <AppText
+              style={[
+                styles.tabLabel,
+                activeTab === tab && styles.tabLabelActive,
+              ]}
+            >
+              {tab}
+            </AppText>
+            {activeTab === tab && <View style={styles.tabUnderline} />}
+          </Pressable>
+        ))}
+      </View>
+
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        removeClippedSubviews
+        contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            onRefresh={() => fetchChildren(true)}
+            tintColor={ORANGE}
+            colors={[ORANGE]}
           />
         }
-        ListFooterComponent={
-          <View style={{ height: tokens.components.tabBar.height + insets.bottom + tokens.spacing.lg }} />
-        }
-      />
-    </View>
+      >
+        {activeTab === "Overview" && (
+          <>
+            {/* Child card */}
+            {children.map((child) => {
+              const age = getAge((child as any).dateOfBirth);
+              const initials = child.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+              return (
+                <Pressable
+                  key={child.id}
+                  style={styles.childCard}
+                  onPress={() => navigation.navigate("Child", { childId: child.id })}
+                >
+                  <View style={styles.childTop}>
+                    <View style={styles.avatar}>
+                      <AppText style={styles.avatarText}>{initials}</AppText>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <AppText style={styles.childName}>{child.name}</AppText>
+                      <AppText style={styles.childSub}>
+                        {age != null ? `${age} years` : ""}
+                        {(child as any).diagnoses?.length
+                          ? ` · ${(child as any).diagnoses.slice(0, 2).join(", ")}`
+                          : ""}
+                      </AppText>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={18} color="#bbb" />
+                  </View>
+                  <AppText style={styles.teamLabel}>Team: Parent · OT · Facilitator · Speech · Teacher</AppText>
+                  {/* Goal bars */}
+                  <View style={styles.goalSection}>
+                    <AppText style={styles.goalHeader}>ACTIVE GOALS</AppText>
+                    <GoalBar label="Eye contact" pct={65} />
+                    <GoalBar label="5-word sentences" pct={40} />
+                    <GoalBar label="Sit for 10 min" pct={80} />
+                  </View>
+                </Pressable>
+              );
+            })}
+
+            {/* Add child */}
+            {isParent && (
+              <Pressable
+                style={styles.addBtn}
+                onPress={() => navigation.navigate("CreateChild")}
+              >
+                <MaterialCommunityIcons name="plus" size={16} color="#fff" />
+                <AppText style={styles.addBtnText}>
+                  {children.length === 0 ? "Add first child profile" : "Add another child"}
+                </AppText>
+              </Pressable>
+            )}
+
+            {/* Upload panel */}
+            {firstChild && (
+              <View style={styles.uploadPanel}>
+                <AppText style={styles.uploadTitle}>Upload files, videos or documents</AppText>
+                <View style={styles.uploadRow}>
+                  {[
+                    { emoji: "🎬", label: "Video" },
+                    { emoji: "🖼️", label: "Photo" },
+                    { emoji: "📄", label: "Doc/Report" },
+                    { emoji: "📋", label: "Assessment" },
+                  ].map((item) => (
+                    <Pressable
+                      key={item.label}
+                      style={styles.uploadBtn}
+                      onPress={() => navigation.navigate("UploadMedia", { childId: firstChild.id })}
+                    >
+                      <AppText style={{ fontSize: 18 }}>{item.emoji}</AppText>
+                      <AppText style={styles.uploadLabel}>{item.label}</AppText>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Recent log entries — placeholder */}
+            <AppText style={styles.sectionTitle}>Recent entries</AppText>
+            <View style={styles.logCard}>
+              <View style={styles.logTop}>
+                <AppText style={styles.logWho}>Your team · OT</AppText>
+                <AppText style={styles.logTime}>Today</AppText>
+              </View>
+              <AppText style={styles.logText}>Great session — focused for 12 minutes.</AppText>
+              <AppText style={styles.logMeta}>📍 Therapy · Mood: calm · Goal: sit 10 min</AppText>
+            </View>
+
+            {/* Add entry */}
+            {firstChild && (
+              <Pressable
+                style={styles.addEntryBtn}
+                onPress={() => navigation.navigate("AddUpdate", { childId: firstChild.id })}
+              >
+                <AppText style={styles.addEntryText}>+ Add entry</AppText>
+              </Pressable>
+            )}
+          </>
+        )}
+
+        {activeTab === "Log" && (
+          <View style={styles.emptyTab}>
+            <AppText style={{ fontSize: 32, marginBottom: 8 }}>📋</AppText>
+            <AppText style={styles.emptyTitle}>Log entries</AppText>
+            <AppText style={styles.emptyDesc}>All progress updates will appear here.</AppText>
+            {firstChild && (
+              <Pressable
+                style={styles.addBtn}
+                onPress={() => navigation.navigate("AddUpdate", { childId: firstChild.id })}
+              >
+                <AppText style={styles.addBtnText}>+ Add entry</AppText>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {activeTab === "Goals" && (
+          <View style={styles.emptyTab}>
+            <AppText style={{ fontSize: 32, marginBottom: 8 }}>🎯</AppText>
+            <AppText style={styles.emptyTitle}>Goals</AppText>
+            <AppText style={styles.emptyDesc}>Track progress goals for each child.</AppText>
+          </View>
+        )}
+
+        {activeTab === "Team" && (
+          <View style={styles.emptyTab}>
+            <AppText style={{ fontSize: 32, marginBottom: 8 }}>👥</AppText>
+            <AppText style={styles.emptyTitle}>Team</AppText>
+            <AppText style={styles.emptyDesc}>View all team members connected to this child.</AppText>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  listContent: {
+  root: { flex: 1 },
+  header: {
+    backgroundColor: ORANGE,
     paddingHorizontal: tokens.spacing.lg,
-    gap: tokens.spacing.md,
+    paddingTop: tokens.spacing.md,
+    paddingBottom: tokens.spacing.lg,
   },
-  headerContainer: {
-    gap: tokens.spacing.md,
-    marginBottom: tokens.spacing.sm,
-  },
-  welcomeCard: {
-    padding: tokens.spacing.xl,
-    overflow: "hidden",
-  },
-  welcomeContent: {
+  headerTitle: { fontSize: 16, fontWeight: "700", color: "#fff" },
+  headerSub: { fontSize: 10, color: "rgba(255,255,255,0.8)", marginTop: 2 },
+  tabRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    borderBottomWidth: 0.5,
   },
-  welcomeText: {
+  tabItem: {
     flex: 1,
-  },
-  sectionHeader: {
-    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: tokens.spacing.sm,
+    paddingVertical: 9,
+    position: "relative",
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#999",
+  },
+  tabLabelActive: {
+    color: ORANGE,
+    fontWeight: "700",
+  },
+  tabUnderline: {
+    position: "absolute",
+    bottom: 0,
+    left: "15%",
+    right: "15%",
+    height: 2,
+    backgroundColor: ORANGE,
+    borderRadius: 2,
   },
   childCard: {
-    marginBottom: tokens.spacing.xs,
+    backgroundColor: "#fff",
+    borderWidth: 0.5,
+    borderColor: "#e4e4e4",
+    borderRadius: 13,
+    margin: tokens.spacing.md,
+    marginBottom: 0,
+    padding: 12,
   },
-  childCardContent: {
+  childTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FEF3E8",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  avatarText: { fontSize: 16, fontWeight: "700", color: "#C4680F" },
+  childName: { fontSize: 14, fontWeight: "700", color: DARK },
+  childSub: { fontSize: 10, color: "#888", marginTop: 2 },
+  teamLabel: { fontSize: 9, color: "#888", marginTop: 6 },
+  goalSection: {
+    marginTop: 10,
+    borderTopWidth: 0.5,
+    borderTopColor: "#f0f0f0",
+    paddingTop: 8,
+  },
+  goalHeader: {
+    fontSize: 8,
+    fontWeight: "700",
+    color: "#888",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    marginBottom: 6,
+  },
+  goalRow: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 5 },
+  goalLabel: { fontSize: 9, color: DARK, width: 90 },
+  goalBarW: { flex: 1, height: 5, backgroundColor: "#f0f0f0", borderRadius: 5, overflow: "hidden" },
+  goalBarFill: { height: "100%", backgroundColor: ORANGE, borderRadius: 5 },
+  goalPct: { fontSize: 8, color: "#888", width: 26, textAlign: "right" },
+  addBtn: {
+    backgroundColor: ORANGE,
     flexDirection: "row",
     alignItems: "center",
-    gap: tokens.spacing.md,
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 11,
+    paddingVertical: 10,
+    marginHorizontal: tokens.spacing.md,
+    marginTop: tokens.spacing.md,
   },
-  childInfo: {
+  addBtnText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+  uploadPanel: {
+    backgroundColor: "#fff",
+    borderWidth: 0.5,
+    borderColor: "#e4e4e4",
+    borderRadius: 13,
+    margin: tokens.spacing.md,
+    marginBottom: 0,
+    padding: 12,
+  },
+  uploadTitle: { fontSize: 11, fontWeight: "700", color: DARK, marginBottom: 8 },
+  uploadRow: { flexDirection: "row", gap: 6 },
+  uploadBtn: {
     flex: 1,
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#f8f8f8",
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: "#ddd",
+    borderRadius: 9,
+    paddingVertical: 10,
   },
-  childMeta: {
-    flexDirection: "row",
-    gap: tokens.spacing.xs,
-    marginTop: tokens.spacing.xs,
+  uploadLabel: { fontSize: 8, fontWeight: "600", color: "#555", textAlign: "center", lineHeight: 12 },
+  sectionTitle: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: DARK,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingTop: 12,
+    paddingBottom: 5,
   },
-  skeletonContainer: {
-    gap: tokens.spacing.md,
+  logCard: {
+    backgroundColor: "#fff",
+    borderWidth: 0.5,
+    borderColor: "#e4e4e4",
+    borderRadius: 11,
+    marginHorizontal: tokens.spacing.md,
+    marginBottom: tokens.spacing.xs,
+    padding: 10,
   },
+  logTop: { flexDirection: "row", justifyContent: "space-between", marginBottom: 3 },
+  logWho: { fontSize: 9, fontWeight: "700", color: ORANGE },
+  logTime: { fontSize: 8, color: "#aaa" },
+  logText: { fontSize: 10, color: "#444", lineHeight: 15 },
+  logMeta: { fontSize: 8, color: "#888", marginTop: 3 },
+  addEntryBtn: {
+    backgroundColor: ORANGE,
+    borderRadius: 11,
+    paddingVertical: 10,
+    marginHorizontal: tokens.spacing.md,
+    marginTop: tokens.spacing.sm,
+    alignItems: "center",
+  },
+  addEntryText: { color: "#fff", fontSize: 12, fontWeight: "600" },
+  emptyTab: {
+    alignItems: "center",
+    paddingTop: 48,
+    paddingHorizontal: tokens.spacing.xl,
+  },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: DARK, marginBottom: 6 },
+  emptyDesc: { fontSize: 13, color: "#888", textAlign: "center", lineHeight: 20 },
 });

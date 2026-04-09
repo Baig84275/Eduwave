@@ -1,10 +1,9 @@
-import React, { useCallback } from "react";
+import { useCallback } from "react";
 import { View, Pressable, StyleSheet, Platform } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  interpolate,
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -22,7 +21,7 @@ interface TabConfig {
   label: string;
   icon: IconName;
   iconFocused: IconName;
-  badge?: number;
+  isSos?: boolean;
 }
 
 const TAB_CONFIGS: Record<string, TabConfig> = {
@@ -32,50 +31,93 @@ const TAB_CONFIGS: Record<string, TabConfig> = {
     icon: "home-outline",
     iconFocused: "home",
   },
-  ChildrenTab: {
-    name: "ChildrenTab",
-    label: "Children",
-    icon: "account-group-outline",
-    iconFocused: "account-group",
-  },
-  TrainingTab: {
-    name: "TrainingTab",
-    label: "Training",
-    icon: "book-open-outline",
-    iconFocused: "book-open",
-  },
   ResourcesTab: {
     name: "ResourcesTab",
     label: "Resources",
     icon: "map-marker-outline",
     iconFocused: "map-marker",
   },
-  CoursesTab: {
-    name: "CoursesTab",
-    label: "Courses",
+  SosTab: {
+    name: "SosTab",
+    label: "SOS",
+    icon: "phone-alert",
+    iconFocused: "phone-alert",
+    isSos: true,
+  },
+  TrackerTab: {
+    name: "TrackerTab",
+    label: "Tracker",
+    icon: "chart-line",
+    iconFocused: "chart-line",
+  },
+  LearnTab: {
+    name: "LearnTab",
+    label: "Learn",
     icon: "school-outline",
     iconFocused: "school",
   },
-  ProfileTab: {
-    name: "ProfileTab",
-    label: "Profile",
-    icon: "account-outline",
-    iconFocused: "account",
-  },
 };
+
+function SosTabItem({
+  focused,
+  onPress,
+  onLongPress,
+}: {
+  focused: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = useCallback(() => {
+    haptics.selection();
+    scale.value = withSpring(0.9, tokens.animation.spring.snappy);
+  }, [scale]);
+
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, tokens.animation.spring.snappy);
+  }, [scale]);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: focused }}
+      accessibilityLabel="SOS Emergency"
+      style={styles.sosWrapper}
+    >
+      <Animated.View
+        style={[
+          styles.sosButton,
+          focused && styles.sosButtonFocused,
+          animatedStyle,
+        ]}
+      >
+        <MaterialCommunityIcons name="phone-alert" size={22} color="#fff" />
+        <AppText variant="caption" weight="bold" style={styles.sosLabel}>
+          SOS
+        </AppText>
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 function TabBarItem({
   route,
   focused,
   onPress,
   onLongPress,
-  badge,
 }: {
   route: { key: string; name: string };
   focused: boolean;
   onPress: () => void;
   onLongPress: () => void;
-  badge?: number;
 }) {
   const { config } = useAccessibility();
   const colors = config.color.colors;
@@ -88,41 +130,22 @@ function TabBarItem({
   };
 
   const scale = useSharedValue(1);
-  const focusProgress = useSharedValue(focused ? 1 : 0);
-
-  // Update focus animation
-  React.useEffect(() => {
-    if (reduceMotion) {
-      focusProgress.value = focused ? 1 : 0;
-    } else {
-      focusProgress.value = withSpring(focused ? 1 : 0, tokens.animation.spring.snappy);
-    }
-  }, [focused, focusProgress, reduceMotion]);
 
   const handlePressIn = useCallback(() => {
     haptics.selection();
-    if (reduceMotion) {
-      scale.value = 0.9;
-    } else {
-      scale.value = withSpring(0.9, tokens.animation.spring.snappy);
+    if (!reduceMotion) {
+      scale.value = withSpring(0.88, tokens.animation.spring.snappy);
     }
   }, [reduceMotion, scale]);
 
   const handlePressOut = useCallback(() => {
-    if (reduceMotion) {
-      scale.value = 1;
-    } else {
+    if (!reduceMotion) {
       scale.value = withSpring(1, tokens.animation.spring.snappy);
     }
   }, [reduceMotion, scale]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-  }));
-
-  const indicatorStyle = useAnimatedStyle(() => ({
-    opacity: focusProgress.value,
-    transform: [{ scaleX: interpolate(focusProgress.value, [0, 1], [0.5, 1]) }],
   }));
 
   const iconColor = focused ? colors.tabBarActive : colors.tabBarInactive;
@@ -140,43 +163,23 @@ function TabBarItem({
       style={styles.tabItem}
     >
       <Animated.View style={[styles.tabItemContent, animatedStyle]}>
-        {/* Active indicator */}
-        <Animated.View
-          style={[
-            styles.activeIndicator,
-            { backgroundColor: colors.tabBarActive },
-            indicatorStyle,
-          ]}
+        {/* Active dot */}
+        {focused && (
+          <View style={[styles.activeDot, { backgroundColor: colors.tabBarActive }]} />
+        )}
+        <MaterialCommunityIcons
+          name={icon}
+          size={22}
+          color={iconColor}
         />
-
-        {/* Icon with badge */}
-        <View style={styles.iconContainer}>
-          <MaterialCommunityIcons
-            name={icon}
-            size={tokens.components.tabBar.iconSize}
-            color={iconColor}
-          />
-          {badge !== undefined && badge > 0 && (
-            <View style={[styles.badge, { backgroundColor: colors.danger }]}>
-              <AppText
-                variant="caption"
-                weight="bold"
-                style={{ color: "#FFFFFF", fontSize: 10 }}
-              >
-                {badge > 99 ? "99+" : badge}
-              </AppText>
-            </View>
-          )}
-        </View>
-
-        {/* Label */}
         <AppText
           variant="caption"
-          weight={focused ? "semibold" : "medium"}
+          weight={focused ? "bold" : "medium"}
           style={{
             color: iconColor,
-            fontSize: tokens.components.tabBar.labelSize * config.typography.fontScale,
-            marginTop: 2,
+            fontSize: 8 * config.typography.fontScale,
+            marginTop: 1,
+            letterSpacing: 0.1,
           }}
         >
           {tabConfig.label}
@@ -186,74 +189,71 @@ function TabBarItem({
   );
 }
 
-export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
   const { config } = useAccessibility();
   const colors = config.color.colors;
   const insets = useSafeAreaInsets();
-
   const tabBarHeight = tokens.components.tabBar.height + insets.bottom;
 
-  // Render glass effect on iOS
+  const renderItems = () =>
+    state.routes.map((route, index) => {
+      const isFocused = state.index === index;
+
+      const onPress = () => {
+        const event = navigation.emit({
+          type: "tabPress",
+          target: route.key,
+          canPreventDefault: true,
+        });
+        if (!isFocused && !event.defaultPrevented) {
+          navigation.navigate(route.name);
+        }
+      };
+
+      const onLongPress = () => {
+        navigation.emit({ type: "tabLongPress", target: route.key });
+      };
+
+      if (route.name === "SosTab") {
+        return (
+          <SosTabItem
+            key={route.key}
+            focused={isFocused}
+            onPress={onPress}
+            onLongPress={onLongPress}
+          />
+        );
+      }
+
+      return (
+        <TabBarItem
+          key={route.key}
+          route={route}
+          focused={isFocused}
+          onPress={onPress}
+          onLongPress={onLongPress}
+        />
+      );
+    });
+
   if (Platform.OS === "ios" && !config.color.highContrast) {
     return (
       <View style={[styles.container, { height: tabBarHeight }]}>
-        <BlurView intensity={80} tint="light" style={styles.blurView}>
-          <View
-            style={[
-              styles.blurOverlay,
-              { backgroundColor: colors.tabBarBackground },
-            ]}
-          />
+        <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill}>
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.tabBarBackground }]} />
         </BlurView>
         <View
           style={[
             styles.tabBar,
-            {
-              borderTopColor: colors.tabBarBorder,
-              paddingBottom: insets.bottom,
-            },
+            { borderTopColor: colors.tabBarBorder, paddingBottom: insets.bottom },
           ]}
         >
-          {state.routes.map((route, index) => {
-            const { options } = descriptors[route.key];
-            const isFocused = state.index === index;
-
-            const onPress = () => {
-              const event = navigation.emit({
-                type: "tabPress",
-                target: route.key,
-                canPreventDefault: true,
-              });
-
-              if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
-              }
-            };
-
-            const onLongPress = () => {
-              navigation.emit({
-                type: "tabLongPress",
-                target: route.key,
-              });
-            };
-
-            return (
-              <TabBarItem
-                key={route.key}
-                route={route}
-                focused={isFocused}
-                onPress={onPress}
-                onLongPress={onLongPress}
-                badge={(options as any).tabBarBadge}
-              />
-            );
-          })}
+          {renderItems()}
         </View>
       </View>
     );
   }
 
-  // Default solid background
   return (
     <View
       style={[
@@ -266,52 +266,17 @@ export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarPro
           paddingBottom: insets.bottom,
         },
         Platform.select({
+          android: { elevation: 8 },
           ios: {
             shadowColor: "#000",
             shadowOpacity: 0.08,
             shadowRadius: 8,
             shadowOffset: { width: 0, height: -4 },
           },
-          android: {
-            elevation: 8,
-          },
         }),
       ]}
     >
-      {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
-        const isFocused = state.index === index;
-
-        const onPress = () => {
-          const event = navigation.emit({
-            type: "tabPress",
-            target: route.key,
-            canPreventDefault: true,
-          });
-
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
-
-        const onLongPress = () => {
-          navigation.emit({
-            type: "tabLongPress",
-            target: route.key,
-          });
-        };
-
-        return (
-          <TabBarItem
-            key={route.key}
-            route={route}
-            focused={isFocused}
-            onPress={onPress}
-            onLongPress={onLongPress}
-            badge={(options as any).tabBarBadge}
-          />
-        );
-      })}
+      {renderItems()}
     </View>
   );
 }
@@ -323,48 +288,63 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  blurView: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  blurOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.9,
-  },
   tabBar: {
     flexDirection: "row",
     borderTopWidth: 0.5,
-    paddingTop: tokens.spacing.xs,
+    paddingTop: 6,
+    alignItems: "flex-end",
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingBottom: 4,
   },
   tabItemContent: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: tokens.spacing.xs,
+    paddingVertical: 2,
     position: "relative",
   },
-  activeIndicator: {
-    position: "absolute",
-    top: -tokens.spacing.xs,
-    width: 24,
-    height: 3,
+  activeDot: {
+    width: 4,
+    height: 4,
     borderRadius: 2,
+    marginBottom: 3,
   },
-  iconContainer: {
-    position: "relative",
+  // SOS raised button
+  sosWrapper: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingBottom: 6,
   },
-  badge: {
-    position: "absolute",
-    top: -4,
-    right: -8,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+  sosButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#D32F2F",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 4,
+    marginBottom: 2,
+    marginTop: -20,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#C62828",
+        shadowOpacity: 0.55,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+      },
+      android: { elevation: 10 },
+    }),
+  },
+  sosButtonFocused: {
+    backgroundColor: "#B71C1C",
+  },
+  sosLabel: {
+    color: "#fff",
+    fontSize: 7,
+    marginTop: 1,
+    letterSpacing: 0.3,
   },
 });

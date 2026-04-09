@@ -1,5 +1,4 @@
 import { NavigationContainer } from "@react-navigation/native";
-import React from "react";
 import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -23,7 +22,9 @@ LogBox.ignoreLogs([
 function RootNavigator() {
   const { session } = useAuth();
   const { hasCompletedSetup } = useAccessibility();
+  // Not logged in → show login/register
   if (!session) return <AuthStack />;
+  // Logged in but no accessibility mode chosen yet → show 3-step onboarding
   if (!hasCompletedSetup) return <SetupStack />;
   return <MainTabs />;
 }
@@ -55,14 +56,10 @@ function AppNavigation() {
     prefixes: ["eduwave://"],
     config: {
       screens: {
-        ProfileTab: {
-          screens: {
-            Invite: "invite",
-          },
-        },
+        HomeTab: "invite/:token",
       },
     },
-  };
+  } as const as any;
   return (
     <NavigationContainer theme={theme} linking={linking}>
       <RootNavigator />
