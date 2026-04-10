@@ -201,37 +201,36 @@ export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const tabBarHeight = tokens.components.tabBar.height + insets.bottom;
 
+  // Build per-route handlers
+  const getHandlers = (route: { key: string; name: string }, index: number) => {
+    const isFocused = state.index === index;
+    const onPress = () => {
+      const event = navigation.emit({
+        type: "tabPress",
+        target: route.key,
+        canPreventDefault: true,
+      });
+      if (!isFocused && !event.defaultPrevented) {
+        navigation.navigate(route.name);
+      }
+    };
+    const onLongPress = () => {
+      navigation.emit({ type: "tabLongPress", target: route.key });
+    };
+    return { isFocused, onPress, onLongPress };
+  };
+
+  // Find SOS route info
+  const sosIndex = state.routes.findIndex((r) => r.name === "SosTab");
+  const sosHandlers = sosIndex >= 0 ? getHandlers(state.routes[sosIndex], sosIndex) : null;
+
   const renderItems = () =>
     state.routes.map((route, index) => {
-      const isFocused = state.index === index;
+      const { isFocused, onPress, onLongPress } = getHandlers(route, index);
 
-      const onPress = () => {
-        const event = navigation.emit({
-          type: "tabPress",
-          target: route.key,
-          canPreventDefault: true,
-        });
-        if (!isFocused && !event.defaultPrevented) {
-          navigation.navigate(route.name);
-        }
-      };
-
-      const onLongPress = () => {
-        navigation.emit({ type: "tabLongPress", target: route.key });
-      };
-
-      // Profile is accessible via the header avatar — keep it out of the strip
-      if (route.name === "ProfileTab") return null;
-
+      // Render a transparent spacer at the SOS slot so surrounding tabs share equal space
       if (route.name === "SosTab") {
-        return (
-          <SosTabItem
-            key={route.key}
-            focused={isFocused}
-            onPress={onPress}
-            onLongPress={onLongPress}
-          />
-        );
+        return <View key={route.key} style={styles.sosSpacer} />;
       }
 
       return (
@@ -245,6 +244,26 @@ export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
       );
     });
 
+  const sosButton = sosHandlers ? (
+    <SosTabItem
+      focused={sosHandlers.isFocused}
+      onPress={sosHandlers.onPress}
+      onLongPress={sosHandlers.onLongPress}
+    />
+  ) : null;
+
+  const tabBarContent = (
+    <>
+      <View style={styles.tabBarStrip}>
+        {renderItems()}
+      </View>
+      {/* SOS button pinned to horizontal center, raised above tab bar */}
+      <View style={styles.sosCenterAnchor} pointerEvents="box-none">
+        {sosButton}
+      </View>
+    </>
+  );
+
   if (Platform.OS === "ios" && !config.color.highContrast) {
     return (
       <View style={[styles.container, { height: tabBarHeight }]}>
@@ -257,7 +276,7 @@ export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
             { borderTopColor: colors.tabBarBorder, paddingBottom: insets.bottom },
           ]}
         >
-          {renderItems()}
+          {tabBarContent}
         </View>
       </View>
     );
@@ -285,7 +304,7 @@ export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
         }),
       ]}
     >
-      {renderItems()}
+      {tabBarContent}
     </View>
   );
 }
@@ -321,22 +340,37 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginBottom: 3,
   },
+  sosSpacer: {
+    flex: 1,
+  },
+  tabBarStrip: {
+    flexDirection: "row",
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  sosCenterAnchor: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "flex-start",
+  },
   // SOS raised button
   sosWrapper: {
-    flex: 1,
     alignItems: "center",
-    justifyContent: "flex-end",
-    paddingBottom: 6,
+    justifyContent: "flex-start",
+    paddingTop: 0,
   },
   sosButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: "#D32F2F",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 2,
-    marginTop: -20,
+    marginTop: -18,
     ...Platform.select({
       ios: {
         shadowColor: "#C62828",
