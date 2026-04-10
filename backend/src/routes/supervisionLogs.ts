@@ -4,31 +4,14 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/http";
 import { requireAuth } from "../middleware/auth";
-import { requireRole } from "../middleware/rbac";
+import { requireRole, SUPERVISOR_ROLES } from "../middleware/rbac";
+import { assertFacilitatorOrgScope } from "../permissions/facilitator";
 import { decryptString, encryptString } from "../lib/crypto";
 import { writeAuditEvent } from "../audit/audit";
 
 export const supervisionLogsRouter = Router();
 
 supervisionLogsRouter.use(requireAuth);
-
-async function assertFacilitatorOrgScope(requester: { id: string; role: Role }, facilitatorId: string) {
-  if (requester.role !== Role.TRAINER_SUPERVISOR && requester.role !== Role.ORG_ADMIN) return;
-  const [reqUser, facUser] = await Promise.all([
-    prisma.user.findUnique({ where: { id: requester.id }, select: { organisationId: true } }),
-    prisma.user.findUnique({ where: { id: facilitatorId }, select: { organisationId: true, role: true } })
-  ]);
-  if (!facUser || facUser.role !== Role.FACILITATOR) {
-    const err: any = new Error("Not found");
-    err.status = 404;
-    throw err;
-  }
-  if (!reqUser?.organisationId || reqUser.organisationId !== facUser.organisationId) {
-    const err: any = new Error("Forbidden");
-    err.status = 403;
-    throw err;
-  }
-}
 
 const createSchema = z.object({
   facilitatorId: z.string().min(1),
@@ -44,7 +27,7 @@ const createSchema = z.object({
 
 supervisionLogsRouter.post(
   "/",
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...SUPERVISOR_ROLES),
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const body = createSchema.parse(req.body);
@@ -203,7 +186,7 @@ const listSchema = z.object({
 
 supervisionLogsRouter.get(
   "/",
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...SUPERVISOR_ROLES),
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const query = listSchema.parse(req.query);

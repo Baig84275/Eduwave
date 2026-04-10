@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/http";
 import { requireAuth } from "../middleware/auth";
-import { requireRole } from "../middleware/rbac";
+import { requireRole, STAFF_ROLES, MANAGER_ROLES } from "../middleware/rbac";
 import { writeAuditEvent } from "../audit/audit";
 import { toSignedUploadUrl, toUploadKey } from "../storage/uploads";
 
@@ -61,7 +61,7 @@ const nearbyQuerySchema = z.object({
 
 resourcesRouter.get(
   "/near",
-  requireRole(Role.FACILITATOR, Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...STAFF_ROLES),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const query = nearQuerySchema.parse(req.query);
@@ -112,7 +112,7 @@ resourcesRouter.get(
 
 resourcesRouter.get(
   "/nearby",
-  requireRole(Role.FACILITATOR, Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...STAFF_ROLES),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const query = nearbyQuerySchema.parse(req.query);
@@ -167,7 +167,7 @@ resourcesRouter.get(
 
 resourcesRouter.get(
   "/",
-  requireRole(Role.FACILITATOR, Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...STAFF_ROLES),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const query = listQuerySchema.parse(req.query);
@@ -231,7 +231,7 @@ const townsQuerySchema = z.object({
 
 resourcesRouter.get(
   "/towns",
-  requireRole(Role.FACILITATOR, Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...STAFF_ROLES),
   asyncHandler(async (req, res) => {
     const query = townsQuerySchema.parse(req.query);
     const rows = await prisma.resource.findMany({
@@ -253,7 +253,7 @@ const geocodeQuerySchema = z.object({ address: z.string().min(5) });
 
 resourcesRouter.get(
   "/geocode",
-  requireRole(Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...MANAGER_ROLES),
   asyncHandler(async (req, res) => {
     const query = geocodeQuerySchema.parse(req.query);
     const url = new URL("https://nominatim.openstreetmap.org/search");
@@ -279,7 +279,7 @@ resourcesRouter.get(
 
 resourcesRouter.get(
   "/:resourceId",
-  requireRole(Role.FACILITATOR, Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...STAFF_ROLES),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const resourceId = req.params.resourceId;
@@ -337,7 +337,7 @@ const patchResourceSchema = upsertResourceSchema.partial();
 
 resourcesRouter.post(
   "/",
-  requireRole(Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...MANAGER_ROLES),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const body = upsertResourceSchema.parse(req.body);
@@ -395,7 +395,7 @@ resourcesRouter.post(
 
 resourcesRouter.put(
   "/:resourceId",
-  requireRole(Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...MANAGER_ROLES),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const resourceId = req.params.resourceId;
@@ -453,7 +453,7 @@ resourcesRouter.put(
 
 resourcesRouter.delete(
   "/:resourceId",
-  requireRole(Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...MANAGER_ROLES),
   asyncHandler(async (req, res) => {
     const resourceId = req.params.resourceId;
     await prisma.resource.delete({ where: { id: resourceId } });
@@ -471,7 +471,7 @@ resourcesRouter.delete(
 
 resourcesRouter.patch(
   "/:resourceId",
-  requireRole(Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...MANAGER_ROLES),
   asyncHandler(async (req, res) => {
     const user = req.user!;
     const resourceId = req.params.resourceId;

@@ -14,7 +14,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuth } from "../auth/AuthContext";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 import { api } from "../api/client";
-import { Child } from "../api/types";
+import { Child, TrainingModuleItem } from "../api/types";
 import { HomeStackParamList } from "../navigation/stacks/HomeStack";
 import { AppText } from "../ui/Text";
 import { tokens } from "../theme/tokens";
@@ -63,6 +63,7 @@ export function HomeScreen() {
   const colors = config.color.colors;
 
   const [children, setChildren] = useState<Child[]>([]);
+  const [modules, setModules] = useState<TrainingModuleItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const firstName =
@@ -72,25 +73,31 @@ export function HomeScreen() {
   const userRole = session?.user.role || "PARENT";
   const isAdmin = ["ADMIN", "SUPER_ADMIN", "TRAINER_SUPERVISOR", "ORG_ADMIN"].includes(userRole);
 
-  const fetchChildren = useCallback(
+  const fetchData = useCallback(
     async (refresh = false) => {
       if (refresh) setRefreshing(true);
       try {
-        const res = await api.get<{ children: Child[] }>("/children", session);
-        setChildren(res.children);
+        const [childRes, modRes] = await Promise.allSettled([
+          api.get<{ children: Child[] }>("/children", session),
+          ["FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR"].includes(userRole)
+            ? api.get<{ modules: TrainingModuleItem[] }>("/training/my-modules", session)
+            : Promise.resolve(null),
+        ]);
+        if (childRes.status === "fulfilled") setChildren(childRes.value.children);
+        if (modRes.status === "fulfilled" && modRes.value) setModules(modRes.value.modules);
       } catch {
         /* silent — home screen isn't critical */
       } finally {
         setRefreshing(false);
       }
     },
-    [session]
+    [session, userRole]
   );
 
   useFocusEffect(
     useCallback(() => {
-      fetchChildren();
-    }, [fetchChildren])
+      fetchData();
+    }, [fetchData])
   );
 
   // Navigate to another tab using the parent TabNavigator
@@ -104,7 +111,7 @@ export function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchChildren(true)} tintColor={PRIMARY} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={PRIMARY} />
         }
       >
         {/* ── HERO BAND ─────────────────────────────────── */}
@@ -124,7 +131,7 @@ export function HomeScreen() {
               style={styles.adminBadge}
               onPress={() => navigation.navigate(
                 userRole === "TRAINER_SUPERVISOR" ? "TrainerDashboard" :
-                userRole === "ORG_ADMIN" ? "OrgOverview" : "Dashboard"
+                userRole === "ORG_ADMIN" ? "OrgOverview" : "Admin"
               )}
             >
               <MaterialCommunityIcons name="view-dashboard-outline" size={16} color="#fff" />
@@ -139,7 +146,7 @@ export function HomeScreen() {
         <View style={styles.quickRow}>
           <QuickAction emoji="📍" label="Find a service" bg="#E0F4F7" onPress={() => goToTab("ResourcesTab")} />
           <QuickAction emoji="📊" label="Log update" bg="#FEF3E8" onPress={() => goToTab("TrackerTab")} />
-          <QuickAction emoji="♿" label="Accessibility" bg="#F0EBF8" onPress={() => navigation.navigate("AccessibilitySettings" as any)} />
+          <QuickAction emoji="♿" label="Accessibility" bg="#F0EBF8" onPress={() => goToTab("ProfileTab")} />
           <QuickAction emoji="🆘" label="Emergency" bg="#FFEBEE" onPress={() => goToTab("SosTab")} />
         </View>
 
@@ -180,53 +187,62 @@ export function HomeScreen() {
           </>
         )}
 
-        {/* ── RECOMMENDED NEAR YOU ──────────────────────── */}
-        <AppText style={[styles.sectionTitle, { color: DARK }]}>Recommended near you</AppText>
+        {/* ── FIND A SERVICE ────────────────────────────── */}
+        <AppText style={[styles.sectionTitle, { color: DARK }]}>Find a service</AppText>
         <Pressable style={[styles.card, { borderColor: colors.border }]} onPress={() => goToTab("ResourcesTab")}>
           <View style={styles.cardRow}>
             <View style={[styles.cardIcon, { backgroundColor: "#E0F4F7" }]}>
-              <AppText style={{ fontSize: 18 }}>🧠</AppText>
+              <AppText style={{ fontSize: 18 }}>📍</AppText>
             </View>
             <View style={{ flex: 1 }}>
-              <AppText style={styles.cardTitle}>Cape Town Sensory Gym</AppText>
-              <AppText style={styles.cardSub}>Observatory · 2.3km away</AppText>
+              <AppText style={styles.cardTitle}>Browse nearby resources</AppText>
+              <AppText style={styles.cardSub}>Therapists, schools, NGOs and more</AppText>
               <View style={[styles.badge, { backgroundColor: "#E0F4F7" }]}>
-                <AppText style={[styles.badgeText, { color: PRIMARY }]}>Special needs friendly</AppText>
+                <AppText style={[styles.badgeText, { color: PRIMARY }]}>Open resource hub →</AppText>
               </View>
             </View>
           </View>
         </Pressable>
 
         {/* ── COURSE PROGRESS ───────────────────────────── */}
-        {["FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR"].includes(userRole) && (
-          <>
-            <AppText style={[styles.sectionTitle, { color: DARK }]}>Course progress</AppText>
-            <Pressable style={[styles.card, { borderColor: colors.border }]} onPress={() => goToTab("LearnTab")}>
-              <AppText style={{ fontSize: 11, fontWeight: "600", color: "#6B4FA0", marginBottom: 6 }}>
-                Level 1 Facilitator Course
-              </AppText>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: "60%", backgroundColor: "#6B4FA0" }]} />
-              </View>
-              <AppText style={{ fontSize: 9, color: "#888", marginTop: 4 }}>
-                Module 6 of 10 · 60% complete
-              </AppText>
-            </Pressable>
-          </>
-        )}
+        {["FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR"].includes(userRole) && modules.length > 0 && (() => {
+          const completed = modules.filter((m) => m.status === "COMPLETED").length;
+          const inProgress = modules.filter((m) => m.status === "IN_PROGRESS");
+          const pct = Math.round((completed / modules.length) * 100);
+          const currentMod = inProgress[0] ?? modules[completed];
+          const currentIdx = inProgress.length
+            ? modules.indexOf(inProgress[0]) + 1
+            : completed + 1;
+          return (
+            <>
+              <AppText style={[styles.sectionTitle, { color: DARK }]}>Course progress</AppText>
+              <Pressable style={[styles.card, { borderColor: colors.border }]} onPress={() => goToTab("LearnTab")}>
+                <AppText style={{ fontSize: 11, fontWeight: "600", color: "#6B4FA0", marginBottom: 6 }}>
+                  {currentMod?.module.moduleName ?? "Your training"}
+                </AppText>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progressFill, { width: `${pct}%` as any, backgroundColor: "#6B4FA0" }]} />
+                </View>
+                <AppText style={{ fontSize: 9, color: "#888", marginTop: 4 }}>
+                  Module {currentIdx} of {modules.length} · {pct}% complete
+                </AppText>
+              </Pressable>
+            </>
+          );
+        })()}
 
         {/* ── PROFILE SHORTCUTS ─────────────────────────── */}
         <View style={styles.profileRow}>
           <Pressable
             style={styles.profileBtn}
-            onPress={() => navigation.navigate("Profile" as any)}
+            onPress={() => goToTab("ProfileTab")}
           >
             <MaterialCommunityIcons name="account-circle-outline" size={18} color={PRIMARY} />
             <AppText style={[styles.profileBtnText, { color: PRIMARY }]}>My Profile</AppText>
           </Pressable>
           <Pressable
             style={styles.profileBtn}
-            onPress={() => navigation.navigate("AccessibilitySettings" as any)}
+            onPress={() => goToTab("ProfileTab")}
           >
             <MaterialCommunityIcons name="tune-variant" size={18} color="#6B4FA0" />
             <AppText style={[styles.profileBtnText, { color: "#6B4FA0" }]}>Settings</AppText>

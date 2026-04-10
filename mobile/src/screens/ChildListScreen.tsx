@@ -26,17 +26,6 @@ const DARK = "#1A1A2E";
 const TABS = ["Overview", "Log", "Goals", "Team"] as const;
 type TrackerTab = (typeof TABS)[number];
 
-function GoalBar({ label, pct }: { label: string; pct: number }) {
-  return (
-    <View style={styles.goalRow}>
-      <AppText style={styles.goalLabel} numberOfLines={1}>{label}</AppText>
-      <View style={styles.goalBarW}>
-        <View style={[styles.goalBarFill, { width: `${pct}%` as any }]} />
-      </View>
-      <AppText style={styles.goalPct}>{pct}%</AppText>
-    </View>
-  );
-}
 
 export function ChildListScreen() {
   const navigation = useNavigation<Nav>();
@@ -147,14 +136,9 @@ export function ChildListScreen() {
                     </View>
                     <MaterialCommunityIcons name="chevron-right" size={18} color="#bbb" />
                   </View>
-                  <AppText style={styles.teamLabel}>Team: Parent · OT · Facilitator · Speech · Teacher</AppText>
-                  {/* Goal bars */}
-                  <View style={styles.goalSection}>
-                    <AppText style={styles.goalHeader}>ACTIVE GOALS</AppText>
-                    <GoalBar label="Eye contact" pct={65} />
-                    <GoalBar label="5-word sentences" pct={40} />
-                    <GoalBar label="Sit for 10 min" pct={80} />
-                  </View>
+                  {(child as any).teamSummary ? (
+                    <AppText style={styles.teamLabel}>Team: {(child as any).teamSummary}</AppText>
+                  ) : null}
                 </Pressable>
               );
             })}
@@ -196,16 +180,22 @@ export function ChildListScreen() {
               </View>
             )}
 
-            {/* Recent log entries — placeholder */}
-            <AppText style={styles.sectionTitle}>Recent entries</AppText>
-            <View style={styles.logCard}>
-              <View style={styles.logTop}>
-                <AppText style={styles.logWho}>Your team · OT</AppText>
-                <AppText style={styles.logTime}>Today</AppText>
-              </View>
-              <AppText style={styles.logText}>Great session — focused for 12 minutes.</AppText>
-              <AppText style={styles.logMeta}>📍 Therapy · Mood: calm · Goal: sit 10 min</AppText>
-            </View>
+            {/* View full timeline */}
+            {firstChild && (
+              <>
+                <AppText style={styles.sectionTitle}>Progress timeline</AppText>
+                <Pressable
+                  style={styles.logCard}
+                  onPress={() => navigation.navigate("Child", { childId: firstChild.id })}
+                >
+                  <View style={styles.logTop}>
+                    <AppText style={styles.logWho}>{firstChild.name}</AppText>
+                    <AppText style={styles.logTime}>View all →</AppText>
+                  </View>
+                  <AppText style={styles.logText}>Tap to view progress updates, media and notes.</AppText>
+                </Pressable>
+              </>
+            )}
 
             {/* Add entry */}
             {firstChild && (
@@ -316,26 +306,7 @@ const styles = StyleSheet.create({
   childName: { fontSize: 14, fontWeight: "700", color: DARK },
   childSub: { fontSize: 10, color: "#888", marginTop: 2 },
   teamLabel: { fontSize: 9, color: "#888", marginTop: 6 },
-  goalSection: {
-    marginTop: 10,
-    borderTopWidth: 0.5,
-    borderTopColor: "#f0f0f0",
-    paddingTop: 8,
-  },
-  goalHeader: {
-    fontSize: 8,
-    fontWeight: "700",
-    color: "#888",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-    marginBottom: 6,
-  },
-  goalRow: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 5 },
-  goalLabel: { fontSize: 9, color: DARK, width: 90 },
-  goalBarW: { flex: 1, height: 5, backgroundColor: "#f0f0f0", borderRadius: 5, overflow: "hidden" },
-  goalBarFill: { height: "100%", backgroundColor: ORANGE, borderRadius: 5 },
-  goalPct: { fontSize: 8, color: "#888", width: 26, textAlign: "right" },
-  addBtn: {
+addBtn: {
     backgroundColor: ORANGE,
     flexDirection: "row",
     alignItems: "center",

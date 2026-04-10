@@ -4,30 +4,13 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/http";
 import { requireAuth } from "../middleware/auth";
-import { requireRole } from "../middleware/rbac";
+import { requireRole, requireSuperAdmin, STAFF_ROLES, MANAGER_ROLES, ADMIN_ROLES, SUPERVISOR_ROLES } from "../middleware/rbac";
+import { assertFacilitatorOrgScope } from "../permissions/facilitator";
 import { writeAuditEvent } from "../audit/audit";
 
 export const trainingRouter = Router();
 
 trainingRouter.use(requireAuth);
-
-async function assertFacilitatorOrgScope(requester: { id: string; role: Role }, facilitatorId: string) {
-  if (requester.role !== Role.TRAINER_SUPERVISOR && requester.role !== Role.ORG_ADMIN) return;
-  const [reqUser, facUser] = await Promise.all([
-    prisma.user.findUnique({ where: { id: requester.id }, select: { organisationId: true } }),
-    prisma.user.findUnique({ where: { id: facilitatorId }, select: { organisationId: true, role: true } })
-  ]);
-  if (!facUser || facUser.role !== Role.FACILITATOR) {
-    const err: any = new Error("Not found");
-    err.status = 404;
-    throw err;
-  }
-  if (!reqUser?.organisationId || reqUser.organisationId !== facUser.organisationId) {
-    const err: any = new Error("Forbidden");
-    err.status = 403;
-    throw err;
-  }
-}
 
 const createModuleSchema = z.object({
   courseId: z.string().min(1),
@@ -37,7 +20,7 @@ const createModuleSchema = z.object({
 
 trainingRouter.post(
   "/modules",
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...SUPERVISOR_ROLES),
   asyncHandler(async (req, res) => {
     const body = createModuleSchema.parse(req.body);
     const module = await prisma.trainingModule.upsert({
@@ -68,7 +51,7 @@ const createCourseSchema = z.object({
 
 trainingRouter.post(
   "/courses",
-  requireRole(Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...ADMIN_ROLES),
   asyncHandler(async (req, res) => {
     const body = createCourseSchema.parse(req.body);
     const course = await prisma.trainingCourse.create({
@@ -104,7 +87,7 @@ const updateCourseSchema = z.object({
 
 trainingRouter.patch(
   "/courses/:courseId",
-  requireRole(Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...ADMIN_ROLES),
   asyncHandler(async (req, res) => {
     const courseId = req.params.courseId;
     const body = updateCourseSchema.parse(req.body);
@@ -130,7 +113,7 @@ trainingRouter.patch(
 
 trainingRouter.get(
   "/courses",
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...SUPERVISOR_ROLES),
   asyncHandler(async (req, res) => {
     const includeInactive =
       (req.query.includeInactive === "true" || req.query.includeInactive === "1") &&
@@ -146,7 +129,7 @@ trainingRouter.get(
 
 trainingRouter.get(
   "/courses/:courseId/modules",
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...SUPERVISOR_ROLES),
   asyncHandler(async (req, res) => {
     const courseId = req.params.courseId;
     const course = await prisma.trainingCourse.findUnique({
@@ -165,7 +148,7 @@ trainingRouter.get(
 
 trainingRouter.delete(
   "/courses/:courseId",
-  requireRole(Role.SUPER_ADMIN),
+  requireSuperAdmin,
   asyncHandler(async (req, res) => {
     const courseId = req.params.courseId;
     const existing = await prisma.trainingCourse.findUnique({
@@ -202,7 +185,7 @@ trainingRouter.delete(
 
 trainingRouter.delete(
   "/modules/:moduleId",
-  requireRole(Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...ADMIN_ROLES),
   asyncHandler(async (req, res) => {
     const moduleId = req.params.moduleId;
     const existing = await prisma.trainingModule.findUnique({ where: { id: moduleId }, select: { id: true, moduleName: true, courseId: true } });
@@ -223,7 +206,7 @@ trainingRouter.delete(
 
 trainingRouter.get(
   "/modules",
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...SUPERVISOR_ROLES),
   asyncHandler(async (_req, res) => {
     const modules = await prisma.trainingModule.findMany({
       orderBy: [{ courseId: "asc" }, { moduleName: "asc" }],
@@ -240,7 +223,7 @@ const assignSchema = z.object({
 
 trainingRouter.post(
   "/assignments",
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...SUPERVISOR_ROLES),
   asyncHandler(async (req, res) => {
     const body = assignSchema.parse(req.body);
     const requester = req.user!;
@@ -274,7 +257,7 @@ trainingRouter.post(
 
 trainingRouter.get(
   "/my-modules",
-  requireRole(Role.FACILITATOR, Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...STAFF_ROLES),
   asyncHandler(async (req, res) => {
     const userId = req.user!.id;
     const assignments = await prisma.trainingAssignment.findMany({
@@ -313,7 +296,7 @@ const completeSchema = z.object({
 
 trainingRouter.post(
   "/completions",
-  requireRole(Role.FACILITATOR, Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...STAFF_ROLES),
   asyncHandler(async (req, res) => {
     const userId = req.user!.id;
     const body = completeSchema.parse(req.body);
@@ -591,7 +574,7 @@ const assignCourseSchema = z.object({
 
 trainingRouter.post(
   "/assign-course",
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...SUPERVISOR_ROLES),
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const body = assignCourseSchema.parse(req.body);
@@ -624,7 +607,7 @@ trainingRouter.post(
 
 trainingRouter.get(
   "/facilitator/:id/progress",
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...SUPERVISOR_ROLES),
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const facilitatorId = req.params.id;

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/http";
 import { requireAuth } from "../middleware/auth";
-import { requireRole } from "../middleware/rbac";
+import { requireRole, requireSuperAdmin } from "../middleware/rbac";
 import { hashPassword } from "../auth/password";
 import { writeAuditEvent } from "../audit/audit";
 
@@ -64,7 +64,7 @@ const changeRoleSchema = z.object({ role: z.nativeEnum(Role) });
 
 adminRouter.patch(
   "/users/:userId/role",
-  requireRole(Role.SUPER_ADMIN),
+  requireSuperAdmin,
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const body = changeRoleSchema.parse(req.body);
@@ -159,7 +159,7 @@ const permissionSchema = z.object({
 
 adminRouter.get(
   "/users/:userId/permissions",
-  requireRole(Role.SUPER_ADMIN),
+  requireSuperAdmin,
   asyncHandler(async (req, res) => {
     const userId = req.params.userId;
     const perms = await prisma.userPermission.findMany({
@@ -173,7 +173,7 @@ adminRouter.get(
 
 adminRouter.post(
   "/permissions/grant",
-  requireRole(Role.SUPER_ADMIN),
+  requireSuperAdmin,
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const body = permissionSchema.parse(req.body);
@@ -201,7 +201,7 @@ adminRouter.post(
 
 adminRouter.post(
   "/permissions/revoke",
-  requireRole(Role.SUPER_ADMIN),
+  requireSuperAdmin,
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const body = permissionSchema.parse(req.body);
