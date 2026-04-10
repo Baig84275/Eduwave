@@ -49,6 +49,8 @@ export function HomeStack() {
     switch (userRole) {
       case "TRAINER_SUPERVISOR": return "TrainerDashboard";
       case "ORG_ADMIN":          return "OrgOverview";
+      case "ADMIN":
+      case "SUPER_ADMIN":        return "Admin";
       default:                   return "Home";
     }
   };

@@ -91,7 +91,7 @@ export function Avatar({
     const gradients = [
       tokens.gradients.primary,
       tokens.gradients.success,
-      tokens.gradients.cool,
+      tokens.gradients.purple,
       tokens.gradients.warm,
       tokens.gradients.neutral,
     ];

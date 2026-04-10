@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "../api/client";
 import { OrgOverview } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
-import { MainStackParamList } from "../navigation/MainStack";
+import { HomeStackParamList } from "../navigation/stacks/HomeStack";
 import { AppButton } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { ScrollScreen } from "../ui/ScrollScreen";
@@ -19,7 +19,7 @@ import { SkeletonCard } from "../ui/Skeleton";
 import { FadeInView, SlideInView } from "../animation/AnimatedComponents";
 import { useAccessibility } from "../accessibility/AccessibilityProvider";
 
-type Props = NativeStackScreenProps<MainStackParamList, "OrgOverview">;
+type Props = NativeStackScreenProps<HomeStackParamList, "OrgOverview">;
 
 export function OrgOverviewScreen({ navigation }: Props) {
   const { session } = useAuth();
