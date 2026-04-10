@@ -37,7 +37,9 @@
     },
     "owner": "baig84275",
     "updates": {
-      "url": "https://u.expo.dev/c1684990-8630-486e-b90d-821e716c9dbb"
+      "url": "https://u.expo.dev/c1684990-8630-486e-b90d-821e716c9dbb",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 3000
     }
   }
 }
