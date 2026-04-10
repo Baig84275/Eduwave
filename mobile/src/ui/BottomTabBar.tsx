@@ -220,6 +220,9 @@ export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
         navigation.emit({ type: "tabLongPress", target: route.key });
       };
 
+      // Profile is accessible via the header avatar — keep it out of the strip
+      if (route.name === "ProfileTab") return null;
+
       if (route.name === "SosTab") {
         return (
           <SosTabItem

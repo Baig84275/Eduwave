@@ -231,6 +231,7 @@ export function ResourceDirectoryScreen({ navigation }: Props) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
         contentContainerStyle={styles.chipRow}
       >
         {CHIP_FILTERS.map((chip, i) => (
@@ -342,10 +343,14 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     padding: 7,
   },
+  chipScroll: {
+    flexGrow: 0,
+    height: 46,
+  },
   chipRow: {
     gap: 6,
     paddingHorizontal: tokens.spacing.md,
-    paddingVertical: 8,
+    alignItems: "center",
   },
   chip: {
     backgroundColor: "#f0f0f0",

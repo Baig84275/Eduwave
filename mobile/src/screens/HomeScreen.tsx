@@ -126,20 +126,29 @@ export function HomeScreen() {
             <AppText style={styles.heroName}>{firstName} 👋</AppText>
             <AppText style={styles.heroSub}>Your village is here for you</AppText>
           </View>
-          {isAdmin && (
+          <View style={styles.heroBadgeRow}>
+            {isAdmin && (
+              <Pressable
+                style={styles.adminBadge}
+                onPress={() => navigation.navigate(
+                  userRole === "TRAINER_SUPERVISOR" ? "TrainerDashboard" :
+                  userRole === "ORG_ADMIN" ? "OrgOverview" : "Admin"
+                )}
+              >
+                <MaterialCommunityIcons name="view-dashboard-outline" size={16} color="#fff" />
+                <AppText style={{ color: "#fff", fontSize: 10, fontWeight: "700", marginLeft: 4 }}>
+                  Dashboard
+                </AppText>
+              </Pressable>
+            )}
             <Pressable
-              style={styles.adminBadge}
-              onPress={() => navigation.navigate(
-                userRole === "TRAINER_SUPERVISOR" ? "TrainerDashboard" :
-                userRole === "ORG_ADMIN" ? "OrgOverview" : "Admin"
-              )}
+              style={styles.profileIconBtn}
+              onPress={() => goToTab("ProfileTab")}
+              accessibilityLabel="Profile"
             >
-              <MaterialCommunityIcons name="view-dashboard-outline" size={16} color="#fff" />
-              <AppText style={{ color: "#fff", fontSize: 10, fontWeight: "700", marginLeft: 4 }}>
-                Dashboard
-              </AppText>
+              <MaterialCommunityIcons name="account-circle-outline" size={26} color="rgba(255,255,255,0.9)" />
             </Pressable>
-          )}
+          </View>
         </LinearGradient>
 
         {/* ── QUICK ACTIONS ──────────────────────────────── */}
@@ -362,4 +371,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   profileBtnText: { fontSize: 11, fontWeight: "600" },
+  heroBadgeRow: {
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 6,
+  },
+  profileIconBtn: {
+    padding: 2,
+  },
 });

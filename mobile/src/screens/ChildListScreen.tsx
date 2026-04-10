@@ -111,6 +111,30 @@ export function ChildListScreen() {
       >
         {activeTab === "Overview" && (
           <>
+            {/* Empty state when no children */}
+            {children.length === 0 && (
+              <View style={styles.emptyTab}>
+                <AppText style={{ fontSize: 40, marginBottom: 12 }}>👶</AppText>
+                <AppText style={styles.emptyTitle}>
+                  {isParent ? "No children yet" : "No children assigned"}
+                </AppText>
+                <AppText style={styles.emptyDesc}>
+                  {isParent
+                    ? "Add your first child profile to start tracking progress."
+                    : "Children assigned to you will appear here."}
+                </AppText>
+                {isParent && (
+                  <Pressable
+                    style={[styles.addBtn, { marginTop: 16 }]}
+                    onPress={() => navigation.navigate("CreateChild")}
+                  >
+                    <MaterialCommunityIcons name="plus" size={16} color="#fff" />
+                    <AppText style={styles.addBtnText}>Add first child profile</AppText>
+                  </Pressable>
+                )}
+              </View>
+            )}
+
             {/* Child card */}
             {children.map((child) => {
               const age = getAge((child as any).dateOfBirth);
