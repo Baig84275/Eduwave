@@ -9,6 +9,7 @@ import { ResourcesStack } from "./stacks/ResourcesStack";
 import { SosStack } from "./stacks/SosStack";
 import { ChildrenStack } from "./stacks/ChildrenStack";
 import { TrainingStack } from "./stacks/TrainingStack";
+import { ProfileStack } from "./stacks/ProfileStack";
 
 export type MainTabsParamList = {
   HomeTab: undefined;
@@ -16,6 +17,7 @@ export type MainTabsParamList = {
   SosTab: undefined;
   TrackerTab: undefined;
   LearnTab: undefined;
+  ProfileTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabsParamList>();
@@ -27,6 +29,7 @@ const TAB_VISIBILITY: Record<string, string[]> = {
   SosTab:       ["PARENT", "FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR", "ORG_ADMIN", "ADMIN", "SUPER_ADMIN"],
   TrackerTab:   ["PARENT", "FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR", "ORG_ADMIN", "ADMIN", "SUPER_ADMIN"],
   LearnTab:     ["FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR", "ORG_ADMIN", "ADMIN", "SUPER_ADMIN"],
+  ProfileTab:   ["PARENT", "FACILITATOR", "TEACHER", "THERAPIST", "TRAINER_SUPERVISOR", "ORG_ADMIN", "ADMIN", "SUPER_ADMIN"],
 };
 
 export function MainTabs() {
@@ -60,6 +63,9 @@ export function MainTabs() {
       )}
       {canSee("LearnTab") && (
         <Tab.Screen name="LearnTab" component={TrainingStack} options={{ title: "Learn" }} />
+      )}
+      {canSee("ProfileTab") && (
+        <Tab.Screen name="ProfileTab" component={ProfileStack} options={{ title: "Profile" }} />
       )}
     </Tab.Navigator>
   );

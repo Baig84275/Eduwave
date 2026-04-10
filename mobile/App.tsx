@@ -56,7 +56,11 @@ function AppNavigation() {
     prefixes: ["eduwave://"],
     config: {
       screens: {
-        HomeTab: "invite/:token",
+        HomeTab: {
+          screens: {
+            Invite: "invite/:token",
+          },
+        },
       },
     },
   } as const as any;

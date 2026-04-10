@@ -56,6 +56,12 @@ const TAB_CONFIGS: Record<string, TabConfig> = {
     icon: "school-outline",
     iconFocused: "school",
   },
+  ProfileTab: {
+    name: "ProfileTab",
+    label: "Profile",
+    icon: "account-outline",
+    iconFocused: "account",
+  },
 };
 
 function SosTabItem({

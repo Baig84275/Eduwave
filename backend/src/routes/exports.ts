@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../lib/http";
 import { requireAuth } from "../middleware/auth";
-import { requireRole } from "../middleware/rbac";
+import { requireRole, MANAGER_ROLES } from "../middleware/rbac";
 import { buildQuarterlySummaryData, renderQuarterlySummaryPdf } from "../reports/quarterlySummary";
 import { signQuarterlySummaryToken, verifyQuarterlySummaryToken } from "../storage/exportTokens";
 
@@ -47,7 +47,7 @@ function toCsv(rows: Array<Record<string, unknown>>) {
 exportsRouter.get(
   "/check-ins",
   requireAuth,
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...MANAGER_ROLES),
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const query = exportQuerySchema.parse(req.query);
@@ -98,7 +98,7 @@ exportsRouter.get(
 exportsRouter.get(
   "/supervision-logs",
   requireAuth,
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...MANAGER_ROLES),
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const query = exportQuerySchema.parse(req.query);
@@ -168,7 +168,7 @@ function getBaseUrl(req: any) {
 exportsRouter.get(
   "/quarterly-summary",
   requireAuth,
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...MANAGER_ROLES),
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const query = quarterlyQuerySchema.parse(req.query);
@@ -189,7 +189,7 @@ exportsRouter.get(
 exportsRouter.get(
   "/quarterly-summary-link",
   requireAuth,
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...MANAGER_ROLES),
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const query = quarterlyQuerySchema.parse(req.query);
@@ -234,7 +234,7 @@ exportsRouter.get(
 exportsRouter.get(
   "/training-completions",
   requireAuth,
-  requireRole(Role.TRAINER_SUPERVISOR, Role.ORG_ADMIN, Role.ADMIN, Role.SUPER_ADMIN),
+  requireRole(...MANAGER_ROLES),
   asyncHandler(async (req, res) => {
     const requester = req.user!;
     const query = exportQuerySchema.parse(req.query);

@@ -61,10 +61,10 @@ export function ResourceDirectoryScreen({ navigation }: Props) {
 
   const [resources, setResources] = useState<Resource[]>([]);
   const [q, setQ] = useState("");
-  const [province] = useState("");
+  const [province, setProvince] = useState("");
   const [city, setCity] = useState("");
   const [town, setTown] = useState("");
-  const [tags] = useState("");
+  const [tags, setTags] = useState("");
   const [category, setCategory] = useState<ResourceCategory | "">("");
   const [nearMe, setNearMe] = useState(false);
   const [activeChip, setActiveChip] = useState(0);
