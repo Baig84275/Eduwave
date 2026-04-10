@@ -83,30 +83,30 @@ export function Avatar({
   };
 
   // Generate consistent color from name
-  const getColorFromName = (name: string): [string, string] => {
+  const getColorFromName = (n: string): [string, string] => {
     let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    for (let i = 0; i < n.length; i++) {
+      hash = n.charCodeAt(i) + ((hash << 5) - hash);
     }
-    const gradients = [
-      tokens.gradients.primary,
-      tokens.gradients.success,
-      tokens.gradients.purple,
-      tokens.gradients.warm,
-      tokens.gradients.neutral,
+    const GRADIENTS: [string, string][] = [
+      ["#007B8A", "#005F6B"],
+      ["#3A9E6F", "#2A7E52"],
+      ["#6B4FA0", "#4A2E7A"],
+      ["#F4861E", "#C4680F"],
+      ["#555555", "#888888"],
     ];
-    return gradients[Math.abs(hash) % gradients.length];
+    return GRADIENTS[Math.abs(hash) % GRADIENTS.length];
   };
 
   const initials = name ? getInitials(name) : "?";
-  const gradientColors = name ? getColorFromName(name) : tokens.gradients.neutral;
+  const gradientColors: [string, string] = name ? getColorFromName(name) : ["#555555", "#888888"];
 
   const avatarContent = (
     <View style={[styles.container, { width: sizeValue, height: sizeValue }]}>
       {/* Gradient border */}
       {showGradientBorder && (
         <LinearGradient
-          colors={[colors.gradientStart, colors.gradientEnd]}
+          colors={[colors.gradientStart || "#007B8A", colors.gradientEnd || "#005F6B"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[
